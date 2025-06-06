@@ -31,10 +31,8 @@ import com.example.careband.viewmodel.SensorDataViewModelFactory
 @Composable
 fun DeviceConnectionScreen(userId: String) {
     val context = LocalContext.current
-    val activity = context as? Activity
-
     val viewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
-    val bleManager = remember { BleManager(context, viewModel) }
+    val bleManager = remember { BleManager(context, viewModel, userId) }
 
     var isConnected by remember { mutableStateOf(false) }
     var connectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
@@ -48,25 +46,26 @@ fun DeviceConnectionScreen(userId: String) {
         }
     }
 
-    LaunchedEffect(Unit) {
-        bleManager.onConnected = { device ->
-            isConnected = true
-            connectedDevice = device
-        }
-        bleManager.onDisconnected = {
-            isConnected = false
-            connectedDevice = null
-            selectedDevice = null
-        }
-    }
-
     DisposableEffect(Unit) {
         bleManager.onDeviceDiscovered = { device ->
             if (device.name != null && discoveredDevices.none { it.address == device.address }) {
                 discoveredDevices.add(device)
             }
         }
-        onDispose { bleManager.onDeviceDiscovered = null }
+        bleManager.onConnected = { device ->
+            connectedDevice = device
+            isConnected = true
+        }
+        bleManager.onDisconnected = {
+            connectedDevice = null
+            isConnected = false
+        }
+
+        onDispose {
+            bleManager.onDeviceDiscovered = null
+            bleManager.onConnected = null
+            bleManager.onDisconnected = null
+        }
     }
 
     Column(
@@ -90,12 +89,14 @@ fun DeviceConnectionScreen(userId: String) {
                 Text("앱 설정으로 이동")
             }
         } else {
-            connectedDevice?.let { device ->
-                Text("✅ 연결된 기기: ${device.name ?: "이름 없음"}")
-                Button(onClick = { bleManager.disconnect() }) {
+            if (connectedDevice != null) {
+                Text("🔗 연결된 기기: ${connectedDevice?.name ?: "알 수 없음"}")
+                Button(onClick = {
+                    bleManager.disconnect()
+                }) {
                     Text("연결 해제")
                 }
-            } ?: run {
+            } else {
                 Button(onClick = {
                     discoveredDevices.clear()
                     bleManager.startScan()

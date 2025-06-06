@@ -25,6 +25,8 @@ import com.example.careband.viewmodel.AuthViewModel
 import com.example.careband.ui.screens.VitalSignsChartScreen
 import com.example.careband.viewmodel.MedicationCheckViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
+import com.google.firebase.auth.FirebaseAuth
+
 
 class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
@@ -50,6 +52,8 @@ class MainActivity : ComponentActivity() {
                 val userName by authViewModel.userName.collectAsState()
                 val currentBackStack by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStack?.destination?.route
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
+                DeviceConnectionScreen(userId = userId)
 
                 var startDestination by remember { mutableStateOf<String?>(null) }
 
