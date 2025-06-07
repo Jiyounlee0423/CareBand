@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.example.careband.R
+import com.example.careband.viewmodel.AlertViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
@@ -163,19 +164,9 @@ class BleManager(
             .addOnFailureListener { e -> Log.w("BLE", "❌ vital_signs 저장 실패", e) }
     }
 
-    private fun saveToAlerts() {
-        val db = FirebaseFirestore.getInstance()
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        val data = mapOf(
-            "user_id" to userId,
-            "alert_type" to "fall",
-            "is_false_alarm" to false,
-            "notified_to" to notifiedTo,
-            "response_received" to expectResponse,
-            "timestamp" to timestamp
-        )
-        db.collection("alerts").add(data)
-            .addOnSuccessListener { Log.d("BLE", "✅ alerts 저장 성공") }
-            .addOnFailureListener { e -> Log.w("BLE", "❌ alerts 저장 실패", e) }
-    }
+        private fun saveToAlerts() {
+            val alertViewModel = AlertViewModel()
+            alertViewModel.submitFallAlert(userId)
+        }
+
 }

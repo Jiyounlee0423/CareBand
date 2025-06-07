@@ -9,12 +9,16 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import com.example.careband.ble.BleManager
 import com.example.careband.navigation.Route
@@ -164,9 +168,24 @@ class MainActivity : ComponentActivity() {
                                     userId = authViewModel.userId.collectAsState().value ?: ""
                                 )
                             }
+//                            composable(Route.ALERT_LOG) {
+//                                AlertScreen(navController = navController, userId = userId)
+//                            }
                             composable(Route.ALERT_LOG) {
-                                Text("알림 기록 화면")
+                                val authViewModel: AuthViewModel = viewModel()
+                                val userIdState = authViewModel.userId.collectAsState()
+                                val userId = userIdState.value
+
+                                if (!userId.isNullOrEmpty()) {
+                                    AlertScreen(navController = navController, userId = userId)
+                                } else {
+                                    // 로딩 스피너나 로그인 필요 메시지
+                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                        Text("사용자 정보 불러오는 중...")
+                                    }
+                                }
                             }
+
                             composable(Route.USER_MANAGEMENT) {
                                 Text("사용자 관리 화면")
                             }

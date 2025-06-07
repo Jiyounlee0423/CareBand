@@ -9,5 +9,7 @@ data class Alert(
     val isFalseAlarm: Boolean = false,      // 오작동 여부
     val notifiedTo: String = "",            // 수신자 (예: 보호자 ID)
     val responseReceived: Boolean = false,  // 응답 여부
-    val timestamp: Timestamp = Timestamp.now() // Firebase Timestamp 사용
+    val timestamp: Timestamp = Timestamp.now(), // Firebase Timestamp 사용
+    val timestampKey: String = ""  // document ID로 사용될 문자열 키
+
 )
