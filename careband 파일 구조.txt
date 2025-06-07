@@ -20,6 +20,7 @@ com.example.careband/
 │       └── VaccinationRecord.kt : 접종 기록 모델
 │
 │   └── repository/ : Firebase와 연결되어 데이터를 저장 및 불러오는 로직 구현
+│       └── AlertRepository.kt : 이상 알림 기록 관련 Firebase 연동 로직직
 │       └── CaregiverRepository.kt
 │       └── DiseaseRepository.kt : 질병 기록 관련 Firebase 연동 로직
 │       └── HealthRepository.kt : 건강 기록 관련 Firebase 연동 로직(insert, update, get) 
@@ -29,31 +30,11 @@ com.example.careband/
 │
 ├── ui/
 │   ├── screens/ : 앱의 주요 화면 UI 정의(Composable 함수 기반)
+│   │   ├── AlertScreen.kt : 이상 알림 내역 확인 창
 │   │   ├── DiseaseRecordScreen.kt : 질병 이력 창
 │   │   ├── HealthRecordScreen.kt : 건강 기록 창 
 │   │   ├── HomeScreen.kt : 홈 화면 창
-│   │   ├── LoginScreen.kt : 로그인 창
-│   │   ├── MedicalHistoryScreen.kt : 의료 이력 창(복약, 접종, 질병 이력 분기)
-│   │   ├── MedicationRecordScreen.kt : 복약 이력 창
-│   │   ├── MedicalReportScreen.kt
-│   │   ├── NavigationMenuScreen.kt : 사이드바 메뉴 창
-│   │   ├── NoteDialogScreen.kt : 건강 기록 추가 창 
-│   │   ├── ProfileMenuScreen.kt : 계정 전환 / 로그아웃 창
-│   │   ├── RegisterScreen.kt : 회원가입 창
-│   │   ├── StartScreen.kt : 로그인/회원가입 선택 창
-│   │   ├── VaccinationRecordScreen.kt : 접종 이력 창
-│   │   └── VitalSignsChartScreen.kt : 생체 데이터 시각화 창
-│   │
-│   ├── components/ : 공통 UI 요소
-│   │   ├── TopBar.kt : 상단바 구성
-│   │   ├── DrawerContent.kt : 사이드바 구성
-│   │ 
-│   └── theme/ : 앱 (전반적인) 스타일 설정
-│       ├── Theme.kt : 앱 전체 테마 설정(Material3)
-│       ├── Color.kt : 앱 색상 정의 파일
-│       └── Typography.kt : 텍스트 스타일 정의 파일
-│
-├── viewmodel/ : Repository를 이용해 데이터 처리 및 화면 상태 관리(UI 중심)
+│   │   ├── LoginScreen.동
 │   └── AuthViewModel.kt : 로그인 상태 및 사용자 정보 유지 (앱 전역)
 │   └── CaregiverViewModel.kt
 │   └── CaregiverViewModelFactory.kt
