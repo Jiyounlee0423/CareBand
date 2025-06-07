@@ -4,7 +4,7 @@ com.example.careband/
 ├── SplashActivity.kt : Splash 화면(앱 초기 로딩)
 │
 ├── navigation/
-│   └── Route : 네비게이션 경로 정의 
+│   └── Route.kt : 네비게이션 경로 정의 
 │ 
 ├── data/
 │   └── model/ : 앱에서 사용하는 모든 데이터 구조 정의
@@ -16,12 +16,12 @@ com.example.careband/
 │       └── Note.kt : 건강 기록에 첨부되는 노트 데이터 모델
 │       ├── User.kt : 사용자 계정 정보(ID, 이름, 생년월일 등)
 │       └── UserType.kt : 계정 역할 관리
-│       └── ReportSummary.kt
+│       └── ReportSummary.kt : 의료 리포트에서 사용되는 요약 정보 모델
 │       └── VaccinationRecord.kt : 접종 기록 모델
 │
 │   └── repository/ : Firebase와 연결되어 데이터를 저장 및 불러오는 로직 구현
-│       └── AlertRepository.kt : 이상 알림 기록 관련 Firebase 연동 로직직
-│       └── CaregiverRepository.kt
+│       └── AlertRepository.kt : 이상 알림 관련 저장 및 조회 로직
+│       └── CaregiverRepository.kt : 보호자와 사용자 매핑 및 정보 처리 로직
 │       └── DiseaseRepository.kt : 질병 기록 관련 Firebase 연동 로직
 │       └── HealthRepository.kt : 건강 기록 관련 Firebase 연동 로직(insert, update, get) 
 │       └── MedicationRepository.kt : 복약 기록 관련 Firebase 연동 로직
@@ -30,20 +30,42 @@ com.example.careband/
 │
 ├── ui/
 │   ├── screens/ : 앱의 주요 화면 UI 정의(Composable 함수 기반)
-│   │   ├── AlertScreen.kt : 이상 알림 내역 확인 창
+│   │   ├── AlertScreen.kt : 이상 알림 기록 창
 │   │   ├── DiseaseRecordScreen.kt : 질병 이력 창
 │   │   ├── HealthRecordScreen.kt : 건강 기록 창 
 │   │   ├── HomeScreen.kt : 홈 화면 창
-│   │   ├── LoginScreen.동
+│   │   ├── LoginScreen.kt : 로그인 창
+│   │   ├── MedicalHistoryScreen.kt : 의료 이력 창(복약, 접종, 질병 이력 분기)
+│   │   ├── MedicationRecordScreen.kt : 복약 이력 창
+│   │   ├── MedicalReportScreen.kt : 의료 리포트 창
+│   │   ├── NavigationMenuScreen.kt : 사이드바 메뉴 창
+│   │   ├── NoteDialogScreen.kt : 건강 기록 추가 창 
+│   │   ├── ProfileMenuScreen.kt : 계정 전환 / 로그아웃 창
+│   │   ├── RegisterScreen.kt : 회원가입 창
+│   │   ├── StartScreen.kt : 로그인/회원가입 선택 창
+│   │   ├── VaccinationRecordScreen.kt : 접종 이력 창
+│   │   └── VitalSignsChartScreen.kt : 생체 데이터 시각화 창
+│   │
+│   ├── components/ : 공통 UI 요소
+│   │   ├── TopBar.kt : 상단바 구성
+│   │   ├── DrawerContent.kt : 사이드바 구성
+│   │ 
+│   └── theme/ : 앱 (전반적인) 스타일 설정
+│       ├── Theme.kt : 앱 전체 테마 설정(Material3)
+│       ├── Color.kt : 앱 색상 정의 파일
+│       └── Typography.kt : 텍스트 스타일 정의 파일
+│
+├── viewmodel/ : Repository를 이용해 데이터 처리 및 화면 상태 관리(UI 중심)
 │   └── AuthViewModel.kt : 로그인 상태 및 사용자 정보 유지 (앱 전역)
-│   └── CaregiverViewModel.kt
-│   └── CaregiverViewModelFactory.kt
+│   └── AlertViewModel.kt : 알림 기록 불러오기 및 실시간 감지
+│   └── CaregiverViewModel.kt : 보호자 관련 기능 상태 관리
+│   └── CaregiverViewModelFactory.kt : 로그인한 사용자 ID를 기준으로 CaregiverViewModel 생성
 │   └── DiseaseViewModel.kt : 질병 이력 화면 상태 관리 및 Firebase 연동
 │   └── DiseaseViewModelFactory.kt : 로그인한 사용자 ID를 기준으로 DiseaseViewModel 생성
 │
 │   └── HealthViewModel.kt : 건강 기록용 + Firebase 연동
 │   ├── LoginViewModel.kt : 로그인 / 회원가입 화면 상태 관리 및 Firebase 연동
-│   └── MedicalReportViewModel.kt - 비정상 범위 기준 포함함
+│   └── MedicalReportViewModel.kt : 생체 데이터 이상 범위 판별 기준 포함
 │   └── MedicationViewModel.kt : 복약 이력 화면 상태 관리 및 Firebase 연동
 │   └── MedicationViewModelFactory.kt : 로그인한 사용자 ID를 기준으로 MedicationViewModel 생성
 │   └── MedicationCheckViewModel.kt : 복약 체크 기능 관리
