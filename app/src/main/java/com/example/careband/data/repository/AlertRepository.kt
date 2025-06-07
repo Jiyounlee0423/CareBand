@@ -10,7 +10,7 @@ class AlertRepository {
     private val db = FirebaseFirestore.getInstance()
 
     /**
-     * 알림 저장
+     * 알림 저장 (하위 컬렉션 → 단일 컬렉션 방식)
      */
     fun saveAlert(
         userId: String,
@@ -26,12 +26,8 @@ class AlertRepository {
             timestampKey = timestampKey
         )
 
-        FirebaseFirestore.getInstance()
-            .collection("alerts")
-            .document(userId)
-            .collection("logs")
-            .document(timestampKey)  // ← 문서 ID로 사용
-            .set(finalAlert)
+        db.collection("alerts")
+            .add(finalAlert)
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 Log.e("Firestore", "알림 저장 실패: ${e.message}")
@@ -40,13 +36,12 @@ class AlertRepository {
     }
 
     /**
-     * 특정 사용자에 대한 모든 알림 불러오기
+     * 특정 사용자에 대한 모든 알림 불러오기 (하위 컬렉션 제거)
      */
     suspend fun getAlertsForUser(userId: String): List<Alert> {
         return try {
             db.collection("alerts")
-                .document(userId)
-                .collection("logs")
+                .whereEqualTo("userId", userId)
                 .get()
                 .await()
                 .documents.mapNotNull { it.toObject(Alert::class.java) }
@@ -57,30 +52,41 @@ class AlertRepository {
     }
 
     /**
-     * 응답 여부 업데이트 (response_received = true)
+     * 응답 여부 업데이트 (단일 컬렉션 기준)
      */
-    fun markAlertResponded(userId: String, timestamp: String, onComplete: (Boolean) -> Unit) {
+    fun markAlertResponded(alertId: String, onComplete: (Boolean) -> Unit) {
         db.collection("alerts")
-            .document(userId)
-            .collection("logs")
-            .document(timestamp)
-            .update("responseReceived", true)
-            .addOnSuccessListener { onComplete(true) }
+            .whereEqualTo("alertId", alertId)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val doc = snapshot.documents.firstOrNull()
+                if (doc != null) {
+                    doc.reference.update("responseReceived", true)
+                        .addOnSuccessListener { onComplete(true) }
+                        .addOnFailureListener {
+                            Log.e("Firestore", "응답 상태 업데이트 실패: ${it.message}")
+                            onComplete(false)
+                        }
+                } else {
+                    Log.e("Firestore", "❌ 해당 alertId 문서 없음")
+                    onComplete(false)
+                }
+            }
             .addOnFailureListener {
-                Log.e("Firestore", "응답 상태 업데이트 실패: ${it.message}")
+                Log.e("Firestore", "❌ alertId 검색 실패: ${it.message}")
                 onComplete(false)
             }
     }
-    
-    // 실시간 수신 함수 추가
+
+    /**
+     * 실시간 수신 (하위 컬렉션 제거)
+     */
     fun listenToAlertsForUser(
         userId: String,
         onUpdate: (List<Alert>) -> Unit
     ) {
-        FirebaseFirestore.getInstance()
-            .collection("alerts")
-            .document(userId)
-            .collection("logs")
+        db.collection("alerts")
+            .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshots, error ->
                 if (error != null) {
                     Log.e("Firestore", "알림 실시간 수신 실패: ${error.message}")
@@ -93,5 +99,4 @@ class AlertRepository {
                 }
             }
     }
-
 }

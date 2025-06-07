@@ -1,3 +1,4 @@
+// BleManager.kt
 package com.example.careband.ble
 
 import android.Manifest
@@ -12,7 +13,6 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.example.careband.R
-import com.example.careband.viewmodel.AlertViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
@@ -88,15 +88,15 @@ class BleManager(
                 }
 
                 override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                    val service = gatt.getService(UUID.fromString("0000180D-0000-1000-8000-00805f9b34fb"))
-                    val characteristic = service?.getCharacteristic(UUID.fromString("00002A37-0000-1000-8000-00805f9b34fb"))
-
-                    characteristic?.let {
-                        gatt.setCharacteristicNotification(it, true)
-                        val descriptor = it.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
-                        descriptor?.let { desc ->
-                            desc.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                            gatt.writeDescriptor(desc)
+                    val services = gatt.services
+                    services.forEach { service ->
+                        service.characteristics.forEach { characteristic ->
+                            gatt.setCharacteristicNotification(characteristic, true)
+                            val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                            descriptor?.let {
+                                it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                gatt.writeDescriptor(it)
+                            }
                         }
                     }
                 }
@@ -106,10 +106,34 @@ class BleManager(
                     Log.d("BLE", "📥 수신된 데이터: $value")
 
                     viewModel.updateFallStatus(value)
-                    if (value == "FALL") {
-                        sendFallNotification()
-                        saveToVitalSigns()
-                        saveToAlerts()
+
+                    when {
+                        value == "FALL" -> {
+                            sendFallNotification()
+                            saveToVitalSigns(fallDetected = true)
+                            saveToAlerts("fall")
+                        }
+                        value.startsWith("BPM:") -> {
+                            val bpm = value.removePrefix("BPM:").toFloatOrNull() ?: return
+                            saveToVitalSigns(bpm = bpm)
+                            if (bpm < 80 || bpm > 120) saveToAlerts("hr_high")
+                        }
+                        value.startsWith("SpO2:") -> {
+                            val spo2 = value.removePrefix("SpO2:").toFloatOrNull() ?: return
+                            saveToVitalSigns(spo2 = spo2)
+                            if (spo2 < 96) saveToAlerts("spo2_low")
+                        }
+                        value == "MPU_ERROR" -> {
+                            Log.e("BLE", "❗ MPU 센서 오류 수신됨")
+                            saveToAlerts("mpu_error")
+                        }
+                        value == "MAX_ERROR" -> {
+                            Log.e("BLE", "❗ MAX30102 센서 오류 수신됨")
+                            saveToAlerts("max_error")
+                        }
+                        value == "SLEEP_MODE" -> {
+                            Log.i("BLE", "💤 ESP32 슬립 모드 진입")
+                        }
                     }
                 }
             })
@@ -148,25 +172,35 @@ class BleManager(
         manager.notify(1, notification)
     }
 
-    private fun saveToVitalSigns() {
+    private fun saveToVitalSigns(bpm: Float? = null, spo2: Float? = null, fallDetected: Boolean? = null) {
         val db = FirebaseFirestore.getInstance()
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
-        val data = mapOf(
+        val data = mutableMapOf<String, Any>(
             "user_id" to userId,
-            "heart_rate" to null,
-            "spo2" to null,
-            "body_temp" to null,
-            "fall_detected" to true,
             "timestamp" to timestamp
         )
+        bpm?.let { data["heart_rate"] = it }
+        spo2?.let { data["spo2"] = it }
+        fallDetected?.let { data["fall_detected"] = it }
+
         db.collection("vital_signs").add(data)
             .addOnSuccessListener { Log.d("BLE", "✅ vital_signs 저장 성공") }
             .addOnFailureListener { e -> Log.w("BLE", "❌ vital_signs 저장 실패", e) }
     }
 
-        private fun saveToAlerts() {
-            val alertViewModel = AlertViewModel()
-            alertViewModel.submitFallAlert(userId)
-        }
-
+    private fun saveToAlerts(type: String) {
+        val db = FirebaseFirestore.getInstance()
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+        val data = mapOf(
+            "user_id" to userId,
+            "alert_type" to type,
+            "is_false_alarm" to false,
+            "notified_to" to notifiedTo,
+            "response_received" to expectResponse,
+            "timestamp" to timestamp
+        )
+        db.collection("alerts").add(data)
+            .addOnSuccessListener { Log.d("BLE", "✅ alerts 저장 성공") }
+            .addOnFailureListener { e -> Log.w("BLE", "❌ alerts 저장 실패", e) }
+    }
 }

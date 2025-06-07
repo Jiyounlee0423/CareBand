@@ -79,10 +79,10 @@ class AlertViewModel(
     /**
      * 응답 여부 처리
      */
-    fun markAlertAsResponded(userId: String, timestampKey: String) {
-        repository.markAlertResponded(userId, timestampKey) { success ->
+    fun markAlertAsResponded(alertId: String, userId: String) {
+        repository.markAlertResponded(alertId) { success ->
             if (success) {
-                loadUserAlerts(userId) // 또는 실시간 반영될 경우 생략 가능
+                loadUserAlerts(userId) // or 생략 가능
             }
         }
     }
