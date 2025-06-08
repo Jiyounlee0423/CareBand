@@ -46,4 +46,33 @@ class UserRepository {
             Result.failure(e)
         }
     }
+
+    fun getProtectedUserInfo(caregiverUid: String, onResult: (User?) -> Unit) {
+        db.collection("users")
+            .document(caregiverUid)
+            .get()
+            .addOnSuccessListener { caregiverDoc ->
+                val caregiver = caregiverDoc.toObject(User::class.java)
+                val protectedUserId = caregiver?.protectedUserId
+                if (protectedUserId != null) {
+                    db.collection("users")
+                        .document(protectedUserId)
+                        .get()
+                        .addOnSuccessListener { userDoc ->
+                            val userInfo = userDoc.toObject(User::class.java)
+                            onResult(userInfo)
+                        }
+                        .addOnFailureListener {
+                            onResult(null)
+                        }
+                } else {
+                    onResult(null)
+                }
+            }
+            .addOnFailureListener {
+                onResult(null)
+            }
+    }
+
+
 }

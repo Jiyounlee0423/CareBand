@@ -1,15 +1,20 @@
 package com.example.careband.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 data class Alert(
-    val alertId: Int = 0,                   // 알림 ID
-    val userId: String = "",                // 사용자 ID
-    val alertType: String = "",             // 알림 종류: "fall", "spo2_low" 등
-    val isFalseAlarm: Boolean = false,      // 오작동 여부
-    val notifiedTo: String = "",            // 수신자 (예: 보호자 ID)
-    val responseReceived: Boolean = false,  // 응답 여부
-    val timestamp: Timestamp = Timestamp.now(), // Firebase Timestamp 사용
-    val timestampKey: String = ""  // document ID로 사용될 문자열 키
+    val alertId: String = "",
 
+    @get:PropertyName("userId") @set:PropertyName("userId")
+    var userId: String = "",
+
+    val alertType: String = "",
+    val isFalseAlarm: Boolean = false,
+    val notifiedTo: String = "",
+    val responseReceived: Boolean = false,
+    val timestamp: Timestamp = Timestamp.now(),
+    val timestampKey: String = ""
 )
+
+

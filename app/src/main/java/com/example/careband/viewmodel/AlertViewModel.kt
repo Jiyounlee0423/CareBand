@@ -9,10 +9,17 @@ import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.*
 
 class AlertViewModel(
+    private val userId: String,
     private val repository: AlertRepository = AlertRepository()
 ) : ViewModel() {
+
+    // 초기화 블록: 뷰모델 생성 시 자동으로 리스너 시작
+    init {
+        startAlertListener()
+    }
 
     private val _alertList = MutableStateFlow<List<Alert>>(emptyList())
     val alertList: StateFlow<List<Alert>> = _alertList
@@ -26,16 +33,17 @@ class AlertViewModel(
     /**
      * 실시간 알림 수신 리스너 연결
      */
-    fun startAlertListener(userId: String) {
+    fun startAlertListener() {
         repository.listenToAlertsForUser(userId) { alerts ->
             _alertList.value = alerts.sortedByDescending { it.timestamp }
+            Log.d("AlertViewModel", "⚠️ alerts 수신됨: ${alerts.size}개")
         }
     }
 
     /**
      * 수동 갱신용 - 비실시간 조회
      */
-    fun loadUserAlerts(userId: String) {
+    fun loadUserAlerts() {
         viewModelScope.launch {
             _loading.value = true
             try {
@@ -53,9 +61,9 @@ class AlertViewModel(
     /**
      * 낙상 알림 전송
      */
-    fun submitFallAlert(userId: String) {
+    fun submitFallAlert() {
         val alert = Alert(
-            alertId = 0,
+            alertId = UUID.randomUUID().toString(),
             userId = userId,
             alertType = "fall",
             isFalseAlarm = false,
@@ -79,10 +87,10 @@ class AlertViewModel(
     /**
      * 응답 여부 처리
      */
-    fun markAlertAsResponded(userId: String, timestampKey: String) {
-        repository.markAlertResponded(userId, timestampKey) { success ->
+    fun markAlertAsResponded(alertId: String) {
+        repository.markAlertResponded(alertId) { success ->
             if (success) {
-                loadUserAlerts(userId) // 또는 실시간 반영될 경우 생략 가능
+                loadUserAlerts() // or 생략 가능
             }
         }
     }

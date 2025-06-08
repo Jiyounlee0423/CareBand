@@ -27,6 +27,8 @@ import com.example.careband.ui.screens.*
 import com.example.careband.ui.theme.CareBandTheme
 import com.example.careband.viewmodel.AuthViewModel
 import com.example.careband.ui.screens.VitalSignsChartScreen
+import com.example.careband.viewmodel.AlertViewModel
+import com.example.careband.viewmodel.AlertViewModelFactory
 import com.example.careband.viewmodel.MedicationCheckViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -168,23 +170,43 @@ class MainActivity : ComponentActivity() {
                                     userId = authViewModel.userId.collectAsState().value ?: ""
                                 )
                             }
+
 //                            composable(Route.ALERT_LOG) {
-//                                AlertScreen(navController = navController, userId = userId)
+//                                val authViewModel: AuthViewModel = viewModel()
+//                                val userIdState = authViewModel.userId.collectAsState()
+//                                val userId = userIdState.value
+//
+//                                if (!userId.isNullOrEmpty()) {
+//                                    val alertViewModel: AlertViewModel = viewModel(
+//                                        factory = AlertViewModelFactory(userId)
+//                                    )
+//
+//                                    AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
+//                                } else {
+//                                    // 로딩 스피너나 로그인 필요 메시지
+//                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//                                        Text("사용자 정보 불러오는 중...")
+//                                    }
+//                                }
 //                            }
+
                             composable(Route.ALERT_LOG) {
-                                val authViewModel: AuthViewModel = viewModel()
                                 val userIdState = authViewModel.userId.collectAsState()
                                 val userId = userIdState.value
 
                                 if (!userId.isNullOrEmpty()) {
-                                    AlertScreen(navController = navController, userId = userId)
+                                    val alertViewModel: AlertViewModel = viewModel(
+                                        factory = AlertViewModelFactory(userId)
+                                    )
+
+                                    AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
                                 } else {
-                                    // 로딩 스피너나 로그인 필요 메시지
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Text("사용자 정보 불러오는 중...")
                                     }
                                 }
                             }
+
 
                             composable(Route.USER_MANAGEMENT) {
                                 Text("사용자 관리 화면")

@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.careband.data.model.Alert
 import com.example.careband.viewmodel.AlertViewModel
+import com.example.careband.viewmodel.AlertViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -20,15 +21,17 @@ import java.util.Locale
 fun AlertScreen(
     navController: NavController,
     userId: String,
-    viewModel: AlertViewModel = viewModel()
+    viewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
 ) {
+    //val viewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
+
     val alertList by viewModel.alertList.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
     // 처음 진입 시 알림 불러오기
     LaunchedEffect(userId) {
-        viewModel.startAlertListener(userId)
+        viewModel.startAlertListener()
         //viewModel.loadUserAlerts(userId)
     }
 
@@ -71,7 +74,7 @@ fun AlertScreen(
                             AlertItem(
                                 alert = alert,
                                 onRespond = {
-                                    viewModel.markAlertAsResponded(userId, alert.timestampKey)
+                                    viewModel.markAlertAsResponded(alert.alertId)
                                 }
                             )
                         }
