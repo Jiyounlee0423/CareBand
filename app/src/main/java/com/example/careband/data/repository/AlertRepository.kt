@@ -16,7 +16,7 @@ class AlertRepository {
         userId: String,
         alert: Alert,
         onSuccess: () -> Unit,
-        onFailure: (String) -> Unit
+        onFailure: (Exception) -> Unit
     ) {
         val timestampKey = alert.timestamp.toDate().time.toString()
 
@@ -37,7 +37,7 @@ class AlertRepository {
             .addOnSuccessListener { onSuccess() }
             .addOnFailureListener { e ->
                 Log.e("Firestore", "알림 저장 실패: ${e.message}")
-                onFailure(e.message ?: "알림 저장 실패")
+                onFailure(e)
             }
     }
 

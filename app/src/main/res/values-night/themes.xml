@@ -13,8 +13,17 @@
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
+
     <style name="Theme.MyApp.Splash" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/white</item> <!-- 배경색을 흰색으로 설정 -->
         <!-- 여기에 추가로 배경색, 아이콘, 텍스트 색상 등을 정의할 수 있어 -->
     </style>
+
+    <!-- ✅ 다크모드에서도 팝업 다이얼로그가 정상 동작하도록 테마 추가 -->
+    <style name="Theme.App.Dialog" parent="Theme.Material3.DayNight.Dialog">
+        <!-- 배경 흐리게 + 다이얼로그 스타일 -->
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
 </resources>
