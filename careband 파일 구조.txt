@@ -2,6 +2,7 @@ com.example.careband/
 │
 ├── MainActivity.kt : 앱 전체 navigation 및 scaffold, TopBar/Drawer 관리
 ├── SplashActivity.kt : Splash 화면(앱 초기 로딩)
+├── EmergencyResponseActivity.kt : 이상 감지 시 응답 팝업
 │
 ├── navigation/
 │   └── Route.kt : 네비게이션 경로 정의 
