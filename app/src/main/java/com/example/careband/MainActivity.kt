@@ -9,12 +9,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
@@ -25,15 +22,8 @@ import com.example.careband.navigation.Route
 import com.example.careband.ui.components.CareBandTopBar
 import com.example.careband.ui.screens.*
 import com.example.careband.ui.theme.CareBandTheme
-import com.example.careband.viewmodel.AuthViewModel
-import com.example.careband.ui.screens.VitalSignsChartScreen
-import com.example.careband.viewmodel.AlertViewModel
-import com.example.careband.viewmodel.AlertViewModelFactory
-import com.example.careband.viewmodel.BleViewModel
-import com.example.careband.viewmodel.MedicationCheckViewModel
-import com.example.careband.viewmodel.SensorDataViewModel
+import com.example.careband.viewmodel.*
 import com.google.firebase.auth.FirebaseAuth
-
 
 class MainActivity : ComponentActivity() {
     private val authViewModel: AuthViewModel by viewModels()
@@ -53,34 +43,35 @@ class MainActivity : ComponentActivity() {
                         ActivityCompat.requestPermissions(this, permissions, 1001)
                     }
                 }
+
                 val navController = rememberNavController()
                 val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
                 val userType by authViewModel.userType.collectAsState()
                 val userName by authViewModel.userName.collectAsState()
                 val currentBackStack by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStack?.destination?.route
+                val context = LocalContext.current
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
-                DeviceConnectionScreen(userId = userId)
+
+                val sensorDataViewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
+                val bleViewModel = remember { BleViewModel() }
+                val bleManager = remember {
+                    BleManager(
+                        context = context,
+                        bleViewModel = bleViewModel,
+                        sensorDataViewModel = sensorDataViewModel,
+                        userId = userId
+                    )
+                }
 
                 var startDestination by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(isLoggedIn) {
                     startDestination = if (isLoggedIn) Route.HOME else Route.LOGIN
-                    if (isLoggedIn) {
-                        navController.popBackStack(Route.LOGIN, inclusive = true)
-                    }
+                    if (isLoggedIn) navController.popBackStack(Route.LOGIN, inclusive = true)
                 }
 
                 BackHandler(enabled = isLoggedIn && currentRoute == Route.LOGIN) {}
-
-                val context = LocalContext.current
-                val sensorDataViewModel: SensorDataViewModel = viewModel()
-                val bleViewModel = remember { BleViewModel() }
-                val bleManager = remember {
-                    BleManager(context = context, viewModel = sensorDataViewModel, userId = "exampleUserId")
-                }
-
-                BleManagerScreen(viewModel = bleViewModel, bleManager = bleManager)
 
                 if (startDestination != null) {
                     Scaffold(
@@ -90,26 +81,16 @@ class MainActivity : ComponentActivity() {
                                 userType = userType,
                                 userName = userName ?: "",
                                 onMenuClick = {
-                                    if (currentRoute == Route.NAV_MENU) {
-                                        navController.popBackStack()
-                                    } else {
-                                        navController.navigate(Route.NAV_MENU)
-                                    }
+                                    if (currentRoute == Route.NAV_MENU) navController.popBackStack()
+                                    else navController.navigate(Route.NAV_MENU)
                                 },
                                 onProfileClick = {
-                                    if (currentRoute == Route.PROFILE_MENU) {
-                                        navController.popBackStack()
-                                    } else {
-                                        navController.navigate(Route.PROFILE_MENU)
-                                    }
+                                    if (currentRoute == Route.PROFILE_MENU) navController.popBackStack()
+                                    else navController.navigate(Route.PROFILE_MENU)
                                 }
                             )
                         }
                     ) { paddingValues ->
-
-                        val userIdState = authViewModel.userId.collectAsState()
-                        val userId = userIdState.value ?: ""
-
                         NavHost(
                             navController = navController,
                             startDestination = startDestination!!,
@@ -176,68 +157,21 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             composable(Route.VITALSIGNS_VIEW) {
-                                VitalSignsChartScreen(
-                                    userId = authViewModel.userId.collectAsState().value ?: ""
-                                )
+                                VitalSignsChartScreen(userId = userId)
                             }
-
-//                            composable(Route.ALERT_LOG) {
-//                                val authViewModel: AuthViewModel = viewModel()
-//                                val userIdState = authViewModel.userId.collectAsState()
-//                                val userId = userIdState.value
-//
-//                                if (!userId.isNullOrEmpty()) {
-//                                    val alertViewModel: AlertViewModel = viewModel(
-//                                        factory = AlertViewModelFactory(userId)
-//                                    )
-//
-//                                    AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
-//                                } else {
-//                                    // 로딩 스피너나 로그인 필요 메시지
-//                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//                                        Text("사용자 정보 불러오는 중...")
-//                                    }
-//                                }
-//                            }
-
                             composable(Route.ALERT_LOG) {
-                                val userIdState = authViewModel.userId.collectAsState()
-                                val userId = userIdState.value
-
-                                if (!userId.isNullOrEmpty()) {
-                                    val alertViewModel: AlertViewModel = viewModel(
-                                        factory = AlertViewModelFactory(userId)
-                                    )
-
-                                    AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
-                                } else {
-                                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                        Text("사용자 정보 불러오는 중...")
-                                    }
-                                }
+                                val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
+                                AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
                             }
-
-
                             composable(Route.USER_MANAGEMENT) {
                                 Text("사용자 관리 화면")
                             }
                             composable(Route.DEVICE_CONNECTION) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    val context = LocalContext.current
-                                    val hasPermissions =
-                                        ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-                                                ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-
-                                    if (hasPermissions) {
-                                        DeviceConnectionScreen(
-                                            userId = authViewModel.userId.collectAsState().value ?: ""
-                                        )
-                                    } else {
-                                        Text("BLE 권한이 필요합니다. 설정에서 권한을 허용하세요.")
-                                    }
-                                } else {
-                                    Text("BLE 연결은 Android 12(API 31)+ 이상에서만 지원됩니다.")
-                                }
+                                BleManagerScreen(
+                                    bleViewModel = bleViewModel,
+                                    sensorDataViewModel = sensorDataViewModel,
+                                    bleManager = bleManager
+                                )
                             }
                             composable(Route.NAV_MENU) {
                                 NavigationMenuScreen(
@@ -253,7 +187,7 @@ class MainActivity : ComponentActivity() {
                                             "데이터 시각화" -> navController.navigate(Route.VITALSIGNS_VIEW)
                                             "알림 기록" -> navController.navigate(Route.ALERT_LOG)
                                             "사용자 관리" -> navController.navigate(Route.USER_MANAGEMENT)
-                                            "설정" -> { /* TODO */ }
+                                            "설정" -> {}
                                             "기기 연결" -> navController.navigate(Route.DEVICE_CONNECTION)
                                         }
                                     }
@@ -272,7 +206,6 @@ class MainActivity : ComponentActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
         if (requestCode == 1001) {
             if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 Log.d("BLE", "✅ 권한 허용됨")

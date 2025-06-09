@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,27 +18,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.careband.ble.BleManager
 import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
-import com.example.careband.viewmodel.SensorDataViewModelFactory
 
 @Composable
 fun BleManagerScreen(
-    viewModel: BleViewModel,
+    bleViewModel: BleViewModel,
+    sensorDataViewModel: SensorDataViewModel,
     bleManager: BleManager
 ) {
-    var connectedDevice by remember { mutableStateOf(bleManager.getConnectedDevice()) }
-    var isScanning by remember { mutableStateOf(false) }
-
     val context = LocalContext.current
 
+    var connectedDevice by remember { mutableStateOf<BluetoothDevice?>(bleManager.getConnectedDevice()) }
     var isConnected by remember { mutableStateOf(false) }
+    var isScanning by remember { mutableStateOf(false) }
     val discoveredDevices = remember { mutableStateListOf<BluetoothDevice>() }
     var selectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
-
-
 
     val hasPermissions by remember {
         derivedStateOf {
@@ -45,7 +42,6 @@ fun BleManagerScreen(
                     ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         }
     }
-
 
     DisposableEffect(Unit) {
         bleManager.onDeviceDiscovered = { device ->
@@ -102,6 +98,7 @@ fun BleManagerScreen(
                 Button(onClick = {
                     discoveredDevices.clear()
                     bleManager.startScan()
+                    isScanning = true
                 }) {
                     Text("스캔 시작")
                 }
@@ -116,7 +113,9 @@ fun BleManagerScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .clickable { selectedDevice = device }
+                                .clickable {
+                                    selectedDevice = device
+                                }
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text("이름: ${device.name ?: "알 수 없음"}")
@@ -130,6 +129,7 @@ fun BleManagerScreen(
                     Text("선택된 기기: ${device.name ?: "알 수 없음"}")
                     Button(onClick = {
                         bleManager.connectToDevice(device)
+                        isScanning = false
                     }) {
                         Text("연결하기")
                     }
@@ -137,41 +137,4 @@ fun BleManagerScreen(
             }
         }
     }
-//
-//    Column(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(16.dp),
-//        verticalArrangement = Arrangement.spacedBy(12.dp),
-//        horizontalAlignment = Alignment.CenterHorizontally
-//    ) {
-//        Text(
-//            text = if (connectedDevice != null)
-//                "✅ 연결된 기기: ${connectedDevice.name ?: "이름 없음"}"
-//            else
-//                "❌ 연결된 기기 없음",
-//            style = MaterialTheme.typography.titleMedium
-//        )
-//
-//        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-//            Button(
-//                onClick = {
-//                    if (!isScanning) {
-//                        bleManager.startScan()
-//                    } else {
-//                        bleManager.stopScan()
-//                    }
-//                    isScanning = !isScanning
-//                }
-//            ) {
-//                Text(if (isScanning) "스캔 정지" else "스캔 시작")
-//            }
-//
-//            if (connectedDevice != null) {
-//                Button(onClick = { bleManager.disconnect() }) {
-//                    Text("연결 해제")
-//                }
-//            }
-//        }
-//    }
 }
