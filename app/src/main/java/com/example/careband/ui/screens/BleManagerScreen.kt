@@ -1,15 +1,11 @@
 package com.example.careband.ui.screens
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
 import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.provider.Settings
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,19 +19,21 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.careband.ble.BleManager
+import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.example.careband.viewmodel.SensorDataViewModelFactory
 
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-@SuppressLint("MissingPermission")
 @Composable
-fun DeviceConnectionScreen(userId: String) {
+fun BleManagerScreen(
+    viewModel: BleViewModel,
+    bleManager: BleManager
+) {
+    var connectedDevice by remember { mutableStateOf(bleManager.getConnectedDevice()) }
+    var isScanning by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
-    val viewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
-    val bleManager = remember { BleManager(context, viewModel, userId) }
 
     var isConnected by remember { mutableStateOf(false) }
-    var connectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
     val discoveredDevices = remember { mutableStateListOf<BluetoothDevice>() }
     var selectedDevice by remember { mutableStateOf<BluetoothDevice?>(null) }
 
@@ -139,4 +137,41 @@ fun DeviceConnectionScreen(userId: String) {
             }
         }
     }
+//
+//    Column(
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .padding(16.dp),
+//        verticalArrangement = Arrangement.spacedBy(12.dp),
+//        horizontalAlignment = Alignment.CenterHorizontally
+//    ) {
+//        Text(
+//            text = if (connectedDevice != null)
+//                "✅ 연결된 기기: ${connectedDevice.name ?: "이름 없음"}"
+//            else
+//                "❌ 연결된 기기 없음",
+//            style = MaterialTheme.typography.titleMedium
+//        )
+//
+//        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+//            Button(
+//                onClick = {
+//                    if (!isScanning) {
+//                        bleManager.startScan()
+//                    } else {
+//                        bleManager.stopScan()
+//                    }
+//                    isScanning = !isScanning
+//                }
+//            ) {
+//                Text(if (isScanning) "스캔 정지" else "스캔 시작")
+//            }
+//
+//            if (connectedDevice != null) {
+//                Button(onClick = { bleManager.disconnect() }) {
+//                    Text("연결 해제")
+//                }
+//            }
+//        }
+//    }
 }

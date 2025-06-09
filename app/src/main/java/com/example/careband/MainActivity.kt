@@ -29,6 +29,7 @@ import com.example.careband.viewmodel.AuthViewModel
 import com.example.careband.ui.screens.VitalSignsChartScreen
 import com.example.careband.viewmodel.AlertViewModel
 import com.example.careband.viewmodel.AlertViewModelFactory
+import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.MedicationCheckViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -71,6 +72,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 BackHandler(enabled = isLoggedIn && currentRoute == Route.LOGIN) {}
+
+                val context = LocalContext.current
+                val sensorDataViewModel: SensorDataViewModel = viewModel()
+                val bleViewModel = remember { BleViewModel() }
+                val bleManager = remember {
+                    BleManager(context = context, viewModel = sensorDataViewModel, userId = "exampleUserId")
+                }
+
+                BleManagerScreen(viewModel = bleViewModel, bleManager = bleManager)
 
                 if (startDestination != null) {
                     Scaffold(

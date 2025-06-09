@@ -268,6 +268,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.DefaultTab.AlbumsTab.value
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import com.example.careband.EmergencyResponseActivity
@@ -275,19 +276,25 @@ import com.example.careband.MainActivity
 import com.example.careband.R
 import com.example.careband.data.model.Alert
 import com.example.careband.data.repository.AlertRepository
+import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.firestore.FirebaseFirestore
+import java.security.Timestamp
+import java.text.SimpleDateFormat
 import java.util.*
 
 class BleManager(
     private val context: Context,
-    private val viewModel: SensorDataViewModel,
+    private val bleViewModel: BleViewModel,
+    private val sensorDataViewModel: SensorDataViewModel,
     private val userId: String,
     private val notifiedTo: String = "보호자",
     private val expectResponse: Boolean = false
 ) {
     private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private var bluetoothGatt: BluetoothGatt? = null
+
+    private var connectedDevice: BluetoothDevice? = null
 
     var onDeviceDiscovered: ((BluetoothDevice) -> Unit)? = null
     var onConnected: ((BluetoothDevice) -> Unit)? = null
@@ -306,8 +313,16 @@ class BleManager(
         }
     }
 
+    private var lastBpmSent = 0L
+    private var lastSpo2Sent = 0L
+    private var lastTempSent = 0L
+
     @SuppressLint("MissingPermission")
     fun startScan() {
+        if (connectedDevice != null) {
+            Log.d("BLE","🚫 이미 연결된 기기가 있으므로 스캔 중단")
+            return
+        }
         try {
             val scanner = bluetoothAdapter.bluetoothLeScanner ?: return
             Log.d("BLE", "startScan() 호출됨")
@@ -336,6 +351,7 @@ class BleManager(
     @SuppressLint("MissingPermission")
     fun connectToDevice(device: BluetoothDevice) {
         stopScan()
+        connectedDevice = device
         try {
             bluetoothGatt = device.connectGatt(context, false, object : BluetoothGattCallback() {
                 override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -343,9 +359,12 @@ class BleManager(
                         Log.d("BLE", "✅ BLE 연결됨: ${device.address}")
                         gatt.discoverServices()
                         onConnected?.invoke(device)
+                        BleViewModel.updateConnectedDevice(device)
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                         Log.d("BLE", "⚠ BLE 연결 해제됨")
+                        connectedDevice = null
                         onDisconnected?.invoke()
+                        BleViewModel.updateConnectedDevice(null)
                     }
                 }
 
@@ -369,12 +388,13 @@ class BleManager(
                 ) {
                     val value = characteristic.value?.toString(Charsets.UTF_8) ?: return
                     Log.d("BLE", "📥 수신된 데이터: $value")
+                    val now = System.currentTimeMillis()
 
                     when {
                         value == "FALL" -> {
-                            viewModel.updateFallStatus(value)
+                            sensorDataViewModel.updateFallStatus(value)
                             sendNotification("낙상", "사용자에게 낙상이 감지되었습니다.")
-                            saveToVitalSigns(fallDetected = true)
+                            saveToVitalSignsMap("fall_detected", true)
                             saveToAlerts("fall")
                         }
 
@@ -385,13 +405,20 @@ class BleManager(
                             if (temp == null) return
 
                             sendNotification("고열", "사용자 체온이 ${temp}°C 입니다.")
-                            saveToVitalSigns(bodyTemp = temp)
+                            if (now - lastTempSent > 60000) {
+                                saveToVitalSignsMap("fever", temp)
+                                lastTempSent = now
+                            }
                             saveToAlerts("fever")
                         }
 
                         value.startsWith("BPM:") -> {
                             val bpm = value.removePrefix("BPM:").toFloatOrNull() ?: return
-                            saveToVitalSigns(bpm = bpm)
+                            if (now - lastBpmSent > 60000) {
+                                Log.d("BLE", "🚨 1분 지남")
+                                saveToVitalSignsMap("heart_rate", bpm)
+                                lastBpmSent = now
+                            }
                             if (bpm < 80 || bpm > 120) {
                                 sendNotification("심박 이상", "심박수가 ${bpm}bpm 입니다.")
                                 saveToAlerts("hr_high")
@@ -400,7 +427,10 @@ class BleManager(
 
                         value.startsWith("SpO2:") -> {
                             val spo2 = value.removePrefix("SpO2:").toFloatOrNull() ?: return
-                            saveToVitalSigns(spo2 = spo2)
+                            if (now - lastSpo2Sent > 60000) {
+                                saveToVitalSignsMap("spo2", spo2)
+                                lastSpo2Sent = now
+                            }
                             if (spo2 < 96) {
                                 sendNotification("산소포화도 저하", "SpO₂ 수치가 ${spo2}% 입니다.")
                                 saveToAlerts("spo2_low")
@@ -426,6 +456,10 @@ class BleManager(
         } catch (e: SecurityException) {
             Log.e("BLE", "❌ connectGatt 권한 오류: ${e.message}")
         }
+    }
+
+    fun getConnectedDevice(): BluetoothDevice? {
+        return connectedDevice
     }
 
     fun disconnect() {
@@ -479,22 +513,25 @@ class BleManager(
 
 
 
-    private fun saveToVitalSigns(bpm: Float? = null, spo2: Float? = null, fallDetected: Boolean? = null, bodyTemp: Float? = null) {
+    private fun saveToVitalSignsMap(type: String, value: Any) {
+        Log.d("BLE", "🚨 saveToVitalSignsMap() 호출됨 → $type")
         val db = FirebaseFirestore.getInstance()
-        val timestamp = com.google.firebase.Timestamp.now()
-        val data = mutableMapOf<String, Any>(
+        val now = com.google.firebase.Timestamp.now()
+        val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val record = mapOf(
             "user_id" to userId,
-            "timestamp" to timestamp
+            "timestamp" to now,
+            "value" to value
         )
-        bpm?.let { data["heart_rate"] = it }
-        spo2?.let { data["spo2"] = it }
-        fallDetected?.let { data["fall_detected"] = it }
-        bodyTemp?.let { data["body_temp"] = it }
-
-        db.collection("vital_signs").add(data)
-            .addOnSuccessListener { Log.d("BLE", "✅ vital_signs 저장 성공") }
-            .addOnFailureListener { e -> Log.w("BLE", "❌ vital_signs 저장 실패", e) }
+        db.collection("vital_signs")
+            .document(dateKey)
+            .collection(type)
+            .add(record)
+            .addOnSuccessListener { Log.d("BLE", "✅ $type 저장 성공") }
+            .addOnFailureListener { e -> Log.e("BLE", "❌ $type 저장 실패", e) }
     }
+
+
 
     private fun saveToAlerts(type: String) {
         Log.d("BLE", "🚨 saveToAlerts() 호출됨 → $type")
