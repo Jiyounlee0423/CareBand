@@ -21,7 +21,7 @@ import java.util.Locale
 fun AlertScreen(
     navController: NavController,
     userId: String,
-    viewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
+    viewModel: AlertViewModel
 ) {
     //val viewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
 

@@ -34,10 +34,10 @@ class EmergencyResponseActivity : ComponentActivity() {
                         updateOrSaveAlert(userId, alertType)
 
                         if (!isTaskRoot) {
-                            // ✅ 앱이 이미 실행 중이면 기존 스택으로 복귀
+                            // ✅ 앱이 실행 중이면 현재 스택 유지
                             finish()
                         } else {
-                            // ✅ 앱이 꺼진 상태에서 알림으로 진입한 경우
+                            // ✅ 앱이 종료된 상태에서 알림 진입 시 메인 화면으로 이동
                             val intent = Intent(this, MainActivity::class.java).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             }
@@ -57,6 +57,7 @@ class EmergencyResponseActivity : ComponentActivity() {
         db.collection("alerts")
             .whereEqualTo("alertType", alertType)
             .whereEqualTo("notifiedTo", "사용자")
+            .whereEqualTo("responseReceived", false) // ✅ 중복 응답 방지
             .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(1)
             .get()
@@ -69,7 +70,7 @@ class EmergencyResponseActivity : ComponentActivity() {
                             Log.d("Firestore", "✅ 기존 알림 응답 처리 완료")
                         }
                         .addOnFailureListener { e ->
-                            Log.e("Firestore", "❌ 알림 업데이트 실패: \${e.message}")
+                            Log.e("Firestore", "❌ 알림 업데이트 실패: ${e.message}")
                         }
                 } else {
                     val newAlert = Alert(
@@ -84,12 +85,12 @@ class EmergencyResponseActivity : ComponentActivity() {
                             Log.d("Firestore", "✅ 새 응답 알림 저장 완료")
                         }
                         .addOnFailureListener { e ->
-                            Log.e("Firestore", "❌ 새 알림 저장 실패: \${e.message}")
+                            Log.e("Firestore", "❌ 새 알림 저장 실패: ${e.message}")
                         }
                 }
             }
             .addOnFailureListener { e ->
-                Log.e("Firestore", "❌ 알림 조회 실패: \${e.message}")
+                Log.e("Firestore", "❌ 알림 조회 실패: ${e.message}")
             }
     }
 }
@@ -103,7 +104,7 @@ fun EmergencyAlertDialog(
 ) {
     AlertDialog(
         onDismissRequest = { onDismiss() },
-        title = { Text("긴급 알림: \$alertType") },
+        title = { Text("긴급 알림: $alertType") },
         text = { Text(alertMessage) },
         confirmButton = {
             TextButton(onClick = { onResponse() }) {
