@@ -15,6 +15,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.careband.R
 import com.example.careband.data.model.UserType
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,7 +24,8 @@ fun CareBandTopBar(
     userType: UserType?,
     userName: String,
     onMenuClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onLogoClick: () -> Unit // 🔽 로고 클릭 이벤트 추가
 ) {
     CenterAlignedTopAppBar(
         title = {
@@ -36,7 +38,9 @@ fun CareBandTopBar(
                 Image(
                     painter = painterResource(id = R.drawable.splash_icon),
                     contentDescription = "CareBand Logo",
-                    modifier = Modifier.height(28.dp),
+                    modifier = Modifier
+                        .height(28.dp)
+                        .clickable { onLogoClick() }, // 🔽 클릭 시 이벤트 실행,
                     colorFilter = ColorFilter.tint(Color.White)
                 )
             }

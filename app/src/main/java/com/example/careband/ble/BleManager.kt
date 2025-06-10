@@ -9,12 +9,16 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.ViewModel
 import com.example.careband.data.model.Alert
 import com.example.careband.data.repository.AlertRepository
 import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.LinkedBlockingQueue
@@ -28,10 +32,12 @@ class BleManager(
     private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private var bluetoothGatt: BluetoothGatt? = null
     private var connectedDevice: BluetoothDevice? = null
+    private val _isConnected = MutableStateFlow(false)
 
     var onDeviceDiscovered: ((BluetoothDevice) -> Unit)? = null
     var onConnected: ((BluetoothDevice) -> Unit)? = null
     var onDisconnected: (() -> Unit)? = null
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val lastSavedTimestamps = mutableMapOf<String, Long>()
     private val saveIntervalMillis = 60_000L  // 1분 (60초)
@@ -96,10 +102,14 @@ class BleManager(
                 gatt.discoverServices()
                 onConnected?.invoke(gatt.device)
                 bleViewModel.updateConnectedDevice(gatt.device)
+                Log.d("BLE", "✅ onConnectionStateChange: 연결됨")
+                _isConnected.value = true
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 connectedDevice = null
                 onDisconnected?.invoke()
                 bleViewModel.updateConnectedDevice(null)
+                Log.d("BLE", "❌ onConnectionStateChange: 연결 끊김")
+                _isConnected.value = false
             }
         }
 
@@ -225,5 +235,18 @@ class BleManager(
         } catch (e: SecurityException) {
             Log.e("BLE", "❌ disconnect 실패: 권한 오류", e)
         }
+    }
+}
+class BleViewModel : ViewModel() {
+
+    private val _connectedDevice = MutableStateFlow<BluetoothDevice?>(null)
+    val connectedDevice: StateFlow<BluetoothDevice?> = _connectedDevice.asStateFlow()
+
+    private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
+    fun updateConnectedDevice(device: BluetoothDevice?) {
+        _connectedDevice.value = device
+        _isConnected.value = device != null
     }
 }

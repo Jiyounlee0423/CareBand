@@ -1,7 +1,9 @@
 package com.example.careband.ui.screens
 
 import android.app.Activity
+import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,8 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -20,26 +24,36 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.example.careband.navigation.Route
-import com.example.careband.viewmodel.AuthViewModel
-import com.example.careband.viewmodel.MedicationCheckViewModel
+import com.example.careband.R
 import com.example.careband.data.model.UserType
+import com.example.careband.navigation.Route
+import com.example.careband.viewmodel.*
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
+import java.time.LocalDate
+import com.example.careband.ble.BleManager
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(navController: NavController, bleManager: BleManager) {
     val authViewModel: AuthViewModel = viewModel()
     val medicationCheckViewModel: MedicationCheckViewModel = viewModel()
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val vitalViewModel: VitalSignsViewModel = viewModel(factory = VitalSignsViewModelFactory(authViewModel.userId.value ?: ""))
 
     val userType by authViewModel.userType.collectAsState()
     val userId = authViewModel.userId.collectAsState().value ?: ""
     val today = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date()) }
     val todayMedications by medicationCheckViewModel.todayMedications.collectAsState()
+    val records by vitalViewModel.records.collectAsState()
 
-    // 로그인 상태 유지 확인
+    val isConnectedState by bleManager.isConnected.collectAsState()
+    val latest = records.maxByOrNull { it.timestamp } // 가장 최근 값 기준
+
+
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // 로그인 상태 확인
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -47,23 +61,30 @@ fun HomeScreen(navController: NavController) {
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // 뒤로 가기 시 로그아웃
-    BackHandler(enabled = true) {
+    // 백핸들러
+    BackHandler {
         authViewModel.logout()
         navController.navigate(Route.LOGIN) {
             popUpTo(Route.HOME) { inclusive = true }
         }
     }
 
-    // 데이터 로딩
+    // 복약 불러오기
     LaunchedEffect(userId) {
         if (userId.isNotBlank()) {
             medicationCheckViewModel.loadTodayMedications(userId)
+        }
+    }
+
+    LaunchedEffect(userId) {
+        if (userId.isNotBlank()) {
+            Log.d("UI", "🔥 userId = $userId")
+            medicationCheckViewModel.loadTodayMedications(userId)
+            Log.d("UI", "🟢 observeVitalSignsSnapshot() 호출됨")
+            vitalViewModel.observeVitalSignsSnapshot(LocalDate.now())
         }
     }
 
@@ -73,7 +94,6 @@ fun HomeScreen(navController: NavController) {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 날짜 표시
         Text(
             text = today,
             fontSize = 20.sp,
@@ -86,19 +106,29 @@ fun HomeScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 생체 정보 (임시 비움)
-        val heartRate: String? = null
-        val bloodPressure: String? = null
-
-        if (heartRate != null || bloodPressure != null) {
-            // 향후 생체 정보 시각화 추가
-        } else {
-            Text("등록된 생체 정보가 없습니다.", color = Color.Gray)
+        when {
+            !isConnectedState -> {
+                Text("기기 연결이 필요합니다.", color = Color.Red)
+            }
+            latest == null -> {
+                Text("등록된 생체 정보가 없습니다.", color = Color.Gray)
+            }
+            else -> {
+                listOf(
+                    Triple("심박수", if (latest.heartRate > 0) "${latest.heartRate} BPM" else "--", R.drawable.heart_icon),
+                    Triple("산소포화도", if (latest.spo2 > 0) "${latest.spo2} %" else "--", R.drawable.spo2_icon),
+                    Triple("체온", if (latest.bodyTemp > 0f) "${latest.bodyTemp} °C" else "--", R.drawable.thermometer)
+                ).forEach { (label, value, iconRes) ->
+                    VitalRow(label = label, value = value, icon = painterResource(id = iconRes))
+                }
+            }
+        }
+        LaunchedEffect(records) {
+            Log.d("UI", "📈 최신 데이터 변경됨: ${records.lastOrNull()}")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 복약 정보
         if (todayMedications.isNotEmpty()) {
             todayMedications.forEach { record ->
                 MedicationItem(
@@ -106,11 +136,9 @@ fun HomeScreen(navController: NavController) {
                     startDate = record.startDate,
                     endDate = record.endDate,
                     checked = record.takenDates.contains(today),
-                    onChecked = { isChecked ->
+                    onChecked = {
                         medicationCheckViewModel.updateMedicationCheckState(
-                            userId = userId,
-                            record = record,
-                            isChecked = isChecked
+                            userId = userId, record = record, isChecked = it
                         )
                     }
                 )
@@ -121,43 +149,51 @@ fun HomeScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 사용자 유형별 버튼 구성
         userType?.let { type ->
             when (type) {
                 UserType.USER -> {
-                    HomeButtonRow(
-                        leftLabel = "의료 리포트",
-                        leftRoute = Route.MEDICAL_REPORT,
-                        rightLabel = "알림 기록",
-                        rightRoute = Route.ALERT_LOG,
-                        navController = navController
-                    )
-                    HomeButtonRow(
-                        leftLabel = "건강 기록",
-                        leftRoute = Route.HEALTH_RECORD,
-                        rightLabel = "의료 이력",
-                        rightRoute = Route.MEDICAL_HISTORY,
-                        navController = navController
-                    )
+                    HomeButtonRow("의료 리포트", Route.MEDICAL_REPORT, "알림 기록", Route.ALERT_LOG, navController)
+                    HomeButtonRow("건강 기록", Route.HEALTH_RECORD, "의료 이력", Route.MEDICAL_HISTORY, navController)
                 }
                 UserType.CAREGIVER -> {
-                    HomeButtonRow(
-                        leftLabel = "의료 리포트",
-                        leftRoute = Route.MEDICAL_REPORT,
-                        rightLabel = "알림 기록",
-                        rightRoute = Route.ALERT_LOG,
-                        navController = navController
-                    )
-                    HomeButtonRow(
-                        leftLabel = "사용자 관리",
-                        leftRoute = Route.USER_MANAGEMENT,
-                        rightLabel = "의료 이력",
-                        rightRoute = Route.MEDICAL_HISTORY,
-                        navController = navController
-                    )
+                    HomeButtonRow("의료 리포트", Route.MEDICAL_REPORT, "알림 기록", Route.ALERT_LOG, navController)
+                    HomeButtonRow("사용자 관리", Route.USER_MANAGEMENT, "의료 이력", Route.MEDICAL_HISTORY, navController)
                 }
             }
         }
+    }
+}
+
+@Composable
+fun VitalRow(label: String, value: String, icon: Painter) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(painter = icon, contentDescription = label, modifier = Modifier.size(32.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = "$label: $value", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+fun HomeButtonRow(
+    leftLabel: String,
+    leftRoute: String,
+    rightLabel: String,
+    rightRoute: String,
+    navController: NavController
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        HomeButton(label = leftLabel, onClick = { navController.navigate(leftRoute) }, modifier = Modifier.weight(1f))
+        HomeButton(label = rightLabel, onClick = { navController.navigate(rightRoute) }, modifier = Modifier.weight(1f))
     }
 }
 
@@ -198,39 +234,11 @@ fun MedicationItem(
 }
 
 @Composable
-fun HomeButtonRow(
-    leftLabel: String,
-    leftRoute: String,
-    rightLabel: String,
-    rightRoute: String,
-    navController: NavController
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        HomeButton(
-            label = leftLabel,
-            onClick = { navController.navigate(leftRoute) },
-            modifier = Modifier.weight(1f)
-        )
-        HomeButton(
-            label = rightLabel,
-            onClick = { navController.navigate(rightRoute) },
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
 fun HomeButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        modifier = modifier
-            .height(48.dp)
+        modifier = modifier.height(48.dp)
     ) {
         Text(text = label, textAlign = TextAlign.Center)
     }

@@ -87,6 +87,12 @@ class MainActivity : ComponentActivity() {
                                 onProfileClick = {
                                     if (currentRoute == Route.PROFILE_MENU) navController.popBackStack()
                                     else navController.navigate(Route.PROFILE_MENU)
+                                },
+                                onLogoClick = {
+                                    navController.navigate("home") {
+                                        popUpTo("home") { inclusive = true }
+                                        launchSingleTop = true
+                                    }
                                 }
                             )
                         }
@@ -127,7 +133,10 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(Route.HOME) {
-                                HomeScreen(navController)
+                                HomeScreen(
+                                    navController = navController,
+                                    bleManager = bleManager // ✅ bleManager 전달
+                                )
                             }
                             composable(Route.PROFILE_MENU) {
                                 ProfileMenuScreen(navController)
