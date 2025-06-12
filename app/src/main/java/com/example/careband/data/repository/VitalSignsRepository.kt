@@ -77,7 +77,7 @@ class VitalSignsRepository {
         date: String,
         onUpdate: (List<VitalSignsRecord>) -> Unit
     ) {
-        val recordsMap = mutableMapOf<String, VitalSignsRecord>()
+        val latestRecord = VitalSignsRecord(userId = userId, date = date)
 
         types.forEach { type ->
             db.collection("vital_signs")
@@ -94,27 +94,16 @@ class VitalSignsRepository {
                     val doc = snapshot?.documents?.lastOrNull() ?: return@addSnapshotListener
                     val value = doc.getDouble("value") ?: return@addSnapshotListener
                     val timestamp = doc.getTimestamp("timestamp")?.toDate() ?: Date()
-                    val key = timestamp.time.toString()
                     val formattedTime = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(timestamp)
 
-                    Log.d("Snapshot", "📥 $type 변경 감지됨 - value = $value")
-
-                    val existing = recordsMap[key] ?: VitalSignsRecord(
-                        timestamp = formattedTime,
-                        userId = userId,
-                        date = date,
-                    )
-
                     val updated = when (type) {
-                        "heart_rate" -> existing.copy(heartRate = value.toInt(), spo2 = existing.spo2, bodyTemp = existing.bodyTemp)
-                        "spo2" -> existing.copy(spo2 = value.toInt(), heartRate = existing.heartRate, bodyTemp = existing.bodyTemp)
-                        "temperature" -> existing.copy(bodyTemp = value.toFloat(), heartRate = existing.heartRate, spo2 = existing.spo2)
-                        else -> existing
+                        "heart_rate" -> latestRecord.copy(timestamp = formattedTime, heartRate = value.toInt())
+                        "spo2" -> latestRecord.copy(timestamp = formattedTime, spo2 = value.toInt())
+                        "temperature" -> latestRecord.copy(timestamp = formattedTime, bodyTemp = value.toFloat())
+                        else -> latestRecord
                     }
 
-                    recordsMap[key] = updated
-
-                    onUpdate(recordsMap.values.sortedBy { it.timestamp })
+                    onUpdate(listOf(updated))
                 }
         }
     }

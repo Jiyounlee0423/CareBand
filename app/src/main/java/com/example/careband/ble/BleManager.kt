@@ -11,9 +11,11 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModel
 import com.example.careband.data.model.Alert
+import com.example.careband.data.model.VitalSignsRecord
 import com.example.careband.data.repository.AlertRepository
 import com.example.careband.viewmodel.BleViewModel
 import com.example.careband.viewmodel.SensorDataViewModel
+import com.example.careband.viewmodel.VitalSignsViewModel
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,12 +29,14 @@ class BleManager(
     private val context: Context,
     private val bleViewModel: BleViewModel,
     private val sensorDataViewModel: SensorDataViewModel,
-    private val userId: String
+    private val userId: String,
+    private val vitalViewModel: VitalSignsViewModel
 ) {
     private val bluetoothAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private var bluetoothGatt: BluetoothGatt? = null
     private var connectedDevice: BluetoothDevice? = null
     private val _isConnected = MutableStateFlow(false)
+    private val descriptorQueue = LinkedBlockingQueue<BluetoothGattDescriptor>()
 
     var onDeviceDiscovered: ((BluetoothDevice) -> Unit)? = null
     var onConnected: ((BluetoothDevice) -> Unit)? = null
@@ -40,7 +44,32 @@ class BleManager(
     val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
 
     private val lastSavedTimestamps = mutableMapOf<String, Long>()
-    private val saveIntervalMillis = 60_000L  // 1분 (60초)
+    private val saveIntervalMillis = 60_000L
+
+    private var latestBPM: Float? = null
+    private var latestSpO2: Float? = null
+    private var latestTemp: Float? = null
+
+//    private fun handleBLEData(type: String, value: Float) {
+//        val now = System.currentTimeMillis()
+//        val timeStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date(now))
+//        val todayStr = timeStr.substring(0, 10)
+//
+//        val current = _records.value.lastOrNull() ?: VitalSignsRecord(
+//            timestamp = timeStr,
+//            userId = userId,
+//            date = todayStr
+//        )
+//
+//        val updated = when (type) {
+//            "BPM" -> current.copy(heartRate = value.toInt())
+//            "SpO2" -> current.copy(spo2 = value.toInt())
+//            "TEMP" -> current.copy(bodyTemp = value)
+//            else -> current
+//        }
+//
+//        _records.value = listOf(updated)
+//    }
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
@@ -83,6 +112,10 @@ class BleManager(
     fun connectToDevice(device: BluetoothDevice) {
         val hasPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         if (!hasPermission) {
+            Log.e("BLE", "❌ BLUETOOTH_CONNECT 권한 없음")
+            return
+        }
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             Log.e("BLE", "❌ BLUETOOTH_CONNECT 권한 없음")
             return
         }
@@ -158,8 +191,9 @@ class BleManager(
                     saveToVitalSignsMap("fall_detected", true)
                     saveToAlerts("fall")
                 }
-                value.startsWith("TEMP:") || value.startsWith("TEMP:") -> {
+                value.startsWith("TEMP:") -> {
                     val temp = value.substringAfter(":").toFloatOrNull() ?: return
+                    vitalViewModel.updateLiveVitalSign("TEMP", temp)
                     if (shouldSave("temperature", now)) {
                         saveToVitalSignsMap("temperature", temp)
                         saveToAlerts("TEMP")
@@ -167,6 +201,7 @@ class BleManager(
                 }
                 value.startsWith("BPM:") -> {
                     val bpm = value.substringAfter(":").toFloatOrNull() ?: return
+                    vitalViewModel.updateLiveVitalSign("BPM", bpm)
                     if (shouldSave("heart_rate", now)) {
                         saveToVitalSignsMap("heart_rate", bpm)
                         saveToAlerts("hr")
@@ -174,6 +209,7 @@ class BleManager(
                 }
                 value.startsWith("SpO2:") -> {
                     val spo2 = value.substringAfter(":").toFloatOrNull() ?: return
+                    vitalViewModel.updateLiveVitalSign("SpO2", spo2)
                     if (shouldSave("spo2", now)) {
                         saveToVitalSignsMap("spo2", spo2)
                         saveToAlerts("spo2")
@@ -212,7 +248,7 @@ class BleManager(
     }
 
     private fun saveToAlerts(type: String) {
-        val alert = Alert(alertId = UUID.randomUUID().toString(),alertType = type)
+        val alert = Alert(alertId = UUID.randomUUID().toString(), alertType = type)
         AlertRepository().saveAlert(userId, alert,
             onSuccess = { Log.d("BLE", "✅ alerts 저장 성공") },
             onFailure = { e -> Log.e("BLE", "❌ alerts 저장 실패: $e") }
@@ -220,6 +256,10 @@ class BleManager(
     }
 
     fun getConnectedDevice(): BluetoothDevice? {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            Log.e("BLE", "❌ getConnectedDevice 권한 없음")
+            return null
+        }
         return connectedDevice
     }
 
@@ -237,8 +277,8 @@ class BleManager(
         }
     }
 }
-class BleViewModel : ViewModel() {
 
+class BleViewModel : ViewModel() {
     private val _connectedDevice = MutableStateFlow<BluetoothDevice?>(null)
     val connectedDevice: StateFlow<BluetoothDevice?> = _connectedDevice.asStateFlow()
 

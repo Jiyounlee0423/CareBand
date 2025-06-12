@@ -11,6 +11,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.flow.asStateFlow
+
 
 class VitalSignsViewModel(private val userId: String) : ViewModel() {
 
@@ -23,6 +28,14 @@ class VitalSignsViewModel(private val userId: String) : ViewModel() {
     private val _healthRecords = MutableStateFlow<List<HealthRecord>>(emptyList())
     val healthRecords: StateFlow<List<HealthRecord>> = _healthRecords
 
+    private var isListening = false
+
+    private val _latestRecord = MutableStateFlow<VitalSignsRecord?>(null)
+    val latestRecord: StateFlow<VitalSignsRecord?> = _latestRecord.asStateFlow()
+
+
+
+
 
     fun loadVitalSignsInRange(startDate: String, endDate: String) {
         viewModelScope.launch {
@@ -30,6 +43,21 @@ class VitalSignsViewModel(private val userId: String) : ViewModel() {
             _records.value = data
         }
     }
+
+    fun updateLatestVitalSigns(bpm: Float?, spo2: Float?, temp: Float?) {
+        val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+        val record = VitalSignsRecord(
+            userId = userId,
+            timestamp = now,
+            date = now.substring(0, 10),
+            heartRate = bpm?.toInt() ?: 0,
+            spo2 = spo2?.toInt() ?: 0,
+            bodyTemp = temp ?: 0f
+        )
+        _latestRecord.value = record
+    }
+
+
 
     fun loadVitalRecords(fromDate: LocalDate) {
         val startDate = fromDate.toString()
@@ -67,14 +95,53 @@ class VitalSignsViewModel(private val userId: String) : ViewModel() {
             _records.value = data
         }
     }
+
     fun observeVitalSignsSnapshot(date: LocalDate) {
+        if (isListening) return // 중복 방지
+        isListening = true
+
         val dateStr = date.toString()
         repository.listenToVitalSigns(userId, dateStr) { latestList ->
-            // 누적 추가 방식으로 변경 (또는 timestamp 기준 중복 제거)
+            _records.value = latestList
             Log.d("ViewModel", "🟡 Snapshot으로 수신된 최신 데이터 수: ${latestList.size}")
-            _records.value = latestList.sortedBy { it.timestamp }
         }
     }
 
+    fun updateLiveVitalSign(type: String, value: Float) {
+        val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date())
+        val today = now.substring(0, 10)
+
+        val current = _latestRecord.value ?: VitalSignsRecord(
+            timestamp = now,
+            userId = userId,
+            date = today,
+            heartRate = 0,
+            spo2 = 0,
+            bodyTemp = 0f
+        )
+        Log.d("ViewModel", "✅ USERID in updateLiveVitalSign -> $userId")
+
+        val updated = when (type) {
+            "BPM" -> current.copy(heartRate = value.toInt(), timestamp = now)
+            "SpO2" -> current.copy(spo2 = value.toInt(), timestamp = now)
+            "TEMP" -> current.copy(bodyTemp = value, timestamp = now)
+            else -> current
+        }
+
+        Log.d("ViewModel", "✅ $type 수신됨 -> 최신 상태: $updated")
+        Log.d("ViewModel", "✅ updateLiveVitalSign 호출됨 -> $updated")
+        Log.d("ViewModel", "✅ USERID -> $userId")
+
+        _latestRecord.value = VitalSignsRecord(
+            date = updated.date,
+            id = updated.id,
+            userId = updated.userId,
+            heartRate = updated.heartRate,
+            spo2 = updated.spo2,
+            bodyTemp = updated.bodyTemp,
+            fallDetected = updated.fallDetected,
+            timestamp = updated.timestamp
+        )
+    }
 
 }

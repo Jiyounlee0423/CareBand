@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.careband.R
@@ -33,6 +34,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.time.LocalDate
 import com.example.careband.ble.BleManager
+import com.example.careband.data.model.VitalSignsRecord
 
 @Composable
 fun HomeScreen(navController: NavController, bleManager: BleManager) {
@@ -44,10 +46,28 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
     val userId = authViewModel.userId.collectAsState().value ?: ""
     val today = remember { SimpleDateFormat("yyyy/MM/dd", Locale.getDefault()).format(Date()) }
     val todayMedications by medicationCheckViewModel.todayMedications.collectAsState()
-    val records by vitalViewModel.records.collectAsState()
+    val records by vitalViewModel.records.collectAsStateWithLifecycle()
+
+    val latestRecordState = vitalViewModel.latestRecord.collectAsState()
+    //val latestRecord by vitalViewModel.latestRecord.collectAsStateWithLifecycle()
+    val latestRecord by vitalViewModel.latestRecord.collectAsState()
+
+
+
+
+
+
+
+    val latest = records.lastOrNull()
+
+    LaunchedEffect(latestRecordState.value) {
+        Log.d("UI", "📲 최신 레코드 업데이트됨: ${latestRecordState.value}")
+    }
+    LaunchedEffect(latestRecord) {
+        Log.d("UI", "📲 최신 레코드 UI에서 감지됨: $latestRecord")
+    }
 
     val isConnectedState by bleManager.isConnected.collectAsState()
-    val latest = records.maxByOrNull { it.timestamp } // 가장 최근 값 기준
 
 
     val context = LocalContext.current
@@ -83,10 +103,14 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
         if (userId.isNotBlank()) {
             Log.d("UI", "🔥 userId = $userId")
             medicationCheckViewModel.loadTodayMedications(userId)
-            Log.d("UI", "🟢 observeVitalSignsSnapshot() 호출됨")
-            vitalViewModel.observeVitalSignsSnapshot(LocalDate.now())
         }
     }
+
+//    LaunchedEffect(Unit) {
+//        if (userId.isNotBlank()) {
+//            vitalViewModel.updateLatestVitalSigns(null, null, null) // 초기화용
+//        }
+//    }
 
     Column(
         modifier = Modifier
@@ -110,19 +134,26 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
             !isConnectedState -> {
                 Text("기기 연결이 필요합니다.", color = Color.Red)
             }
-            latest == null -> {
-                Text("등록된 생체 정보가 없습니다.", color = Color.Gray)
+            latestRecord == null -> {
+                Text("등록된 생체 정보가 없습니다 (latestRecord == null).", color = Color.Gray)
+            }
+            latestRecord!!.heartRate == 0 && latestRecord!!.spo2 == 0 && latestRecord!!.bodyTemp == 0f -> {
+                Text("등록된 생체 정보가 없습니다 (값이 모두 0).", color = Color.Gray)
             }
             else -> {
-                listOf(
-                    Triple("심박수", if (latest.heartRate > 0) "${latest.heartRate} BPM" else "--", R.drawable.heart_icon),
-                    Triple("산소포화도", if (latest.spo2 > 0) "${latest.spo2} %" else "--", R.drawable.spo2_icon),
-                    Triple("체온", if (latest.bodyTemp > 0f) "${latest.bodyTemp} °C" else "--", R.drawable.thermometer)
-                ).forEach { (label, value, iconRes) ->
-                    VitalRow(label = label, value = value, icon = painterResource(id = iconRes))
+                val record = latestRecord!!
+                val items = listOf(
+                    Triple("심박수", "${record.heartRate} BPM", R.drawable.heart_icon),
+                    Triple("산소포화도", "${record.spo2} %", R.drawable.spo2_icon),
+                    Triple("체온", "${record.bodyTemp} °C", R.drawable.thermometer)
+                )
+                items.forEach { (label, value, iconRes) ->
+                    VitalRow(label, value, painterResource(id = iconRes))
                 }
             }
         }
+
+
         LaunchedEffect(records) {
             Log.d("UI", "📈 최신 데이터 변경됨: ${records.lastOrNull()}")
         }

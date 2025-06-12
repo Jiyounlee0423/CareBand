@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.compose.*
 import com.example.careband.ble.BleManager
 import com.example.careband.navigation.Route
@@ -30,8 +31,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             CareBandTheme {
+                val context = LocalContext.current
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
+
+                val vitalViewModel: VitalSignsViewModel = viewModel(factory = VitalSignsViewModelFactory(userId))
+                val sensorDataViewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
+                val bleViewModel = remember { BleViewModel() }
+
+                val bleManager = remember {
+                    BleManager(
+                        context = context,
+                        bleViewModel = bleViewModel,
+                        sensorDataViewModel = sensorDataViewModel,
+                        userId = userId,
+                        vitalViewModel = vitalViewModel // ✅ 실시간 반영용 ViewModel 전달
+                    )
+                }
+
+                // 권한 요청
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val permissions = arrayOf(
                         Manifest.permission.BLUETOOTH_SCAN,
@@ -50,19 +70,6 @@ class MainActivity : ComponentActivity() {
                 val userName by authViewModel.userName.collectAsState()
                 val currentBackStack by navController.currentBackStackEntryAsState()
                 val currentRoute = currentBackStack?.destination?.route
-                val context = LocalContext.current
-                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
-
-                val sensorDataViewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
-                val bleViewModel = remember { BleViewModel() }
-                val bleManager = remember {
-                    BleManager(
-                        context = context,
-                        bleViewModel = bleViewModel,
-                        sensorDataViewModel = sensorDataViewModel,
-                        userId = userId
-                    )
-                }
 
                 var startDestination by remember { mutableStateOf<String?>(null) }
 
@@ -135,7 +142,7 @@ class MainActivity : ComponentActivity() {
                             composable(Route.HOME) {
                                 HomeScreen(
                                     navController = navController,
-                                    bleManager = bleManager // ✅ bleManager 전달
+                                    bleManager = bleManager
                                 )
                             }
                             composable(Route.PROFILE_MENU) {
