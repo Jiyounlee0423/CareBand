@@ -30,8 +30,8 @@ fun MedicalReportScreen(
             viewModel(factory = CaregiverViewModelFactory(userId))
         } else null
 
-    val caredUserId = caregiverViewModel?.caredUserId?.collectAsState()
-    val actualUserId = if (userType == UserType.CAREGIVER) caredUserId else userId
+    val selectedUserId = caregiverViewModel?.selectedUserId?.collectAsState()
+    val actualUserId = if (userType == UserType.CAREGIVER) selectedUserId?.value else userId
 
     actualUserId?.let {
         val viewModel: MedicalReportViewModel = viewModel(factory = object : ViewModelProvider.Factory {

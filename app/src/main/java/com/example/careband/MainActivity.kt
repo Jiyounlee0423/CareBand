@@ -116,6 +116,8 @@ class MainActivity : ComponentActivity() {
 
                 BackHandler(enabled = isLoggedIn && currentRoute == Route.LOGIN) {}
 
+                val caregiverId = authViewModel.userId.collectAsState().value ?: ""
+
                 if (startDestination != null) {
                     Scaffold(
                         topBar = {
@@ -212,8 +214,6 @@ class MainActivity : ComponentActivity() {
                                 VitalSignsChartScreen(userId = userId)
                             }
                             composable(Route.ALERT_LOG) {
-//                                val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
-//                                AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
                                 val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
                                 AlertScreen(
                                     navController = navController,
@@ -223,7 +223,10 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(Route.USER_MANAGEMENT) {
-                                Text("사용자 관리 화면")
+                                ManagedUserSelectionScreen(
+                                    navController = navController,
+                                    caregiverId = caregiverId ?: ""
+                                )
                             }
                             composable(Route.DEVICE_CONNECTION) {
                                 BleManagerScreen(

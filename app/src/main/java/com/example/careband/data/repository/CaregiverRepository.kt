@@ -2,7 +2,10 @@ package com.example.careband.data.repository
 
 import android.util.Log
 import com.example.careband.data.model.Caregiver
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.tasks.await
 
 class CaregiverRepository {
@@ -27,15 +30,15 @@ class CaregiverRepository {
     }
 
     /** 보호자 ID로 해당 케어 사용자 ID 가져오기 **/
-    suspend fun getCaredUserId(caregiverId: String): String? {
-        return try {
-            val snapshot = caregiversCollection.document(caregiverId).get().await()
-            snapshot.getString("caredUserId")
-        } catch (e: Exception) {
-            Log.e("Firestore", "Caregiver 정보 가져오기 실패: ${e.message}")
-            null
-        }
+    suspend fun getManagedUserIds(caregiverId: String): List<String> {
+        val snapshot = Firebase.firestore.collection("users")
+            .document(caregiverId)
+            .get()
+            .await()
+
+        return snapshot.get("managedUserIds") as? List<String> ?: emptyList()
     }
+
 
     /** 보호자 전체 정보 가져오기 (필요 시) **/
     suspend fun getCaregiver(caregiverId: String): Caregiver? {
@@ -47,4 +50,32 @@ class CaregiverRepository {
             null
         }
     }
+
+    fun addManagedUserId(caregiverId: String, userIdToAdd: String, onComplete: (Boolean) -> Unit) {
+        val docRef = FirebaseFirestore.getInstance().collection("users").document(caregiverId)
+
+        docRef.update("managedUserIds", FieldValue.arrayUnion(userIdToAdd))
+            .addOnSuccessListener {
+                Log.d("Firestore", "✅ 사용자 ID 추가 성공: $userIdToAdd")
+                onComplete(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firestore", "❌ 사용자 ID 추가 실패: ${e.message}")
+                onComplete(false)
+            }
+    }
+
+    suspend fun doesUserExist(userId: String): Boolean {
+        return try {
+            val snapshot = Firebase.firestore.collection("users")
+                .whereEqualTo("id", userId)
+                .get()
+                .await()
+
+            !snapshot.isEmpty
+        } catch (e: Exception) {
+            false
+        }
+    }
+
 }

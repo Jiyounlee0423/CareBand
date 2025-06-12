@@ -113,6 +113,7 @@ fun RegisterScreen(
                         // Firestore에 사용자 정보 저장
                         authViewModel.saveUserToFirestore(
                             uid = uid,
+                            userId = userId,
                             name = name,
                             type = userType,
                             birth = if (isUser) birth else "",

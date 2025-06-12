@@ -58,6 +58,7 @@ class AuthViewModel : ViewModel() {
 
     fun saveUserToFirestore(
         uid: String,
+        userId: String, // 사용자가 입력한 ID
         name: String,
         type: UserType,
         birth: String,
@@ -67,7 +68,8 @@ class AuthViewModel : ViewModel() {
         onFailure: (String) -> Unit
     ) {
         val user = User(
-            id = uid,
+            uid = uid,
+            id = userId,
             name = name,
             type = type,
             birth = birth,

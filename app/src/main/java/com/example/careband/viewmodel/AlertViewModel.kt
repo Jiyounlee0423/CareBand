@@ -59,33 +59,6 @@ class AlertViewModel(
         }
     }
 
-    /**
-     * 낙상 알림 전송
-     */
-//    fun submitFallAlert() {
-//        val alert = Alert(
-//            alertId = UUID.randomUUID().toString(),
-//            userId = userId,
-//            alertType = "fall",
-//            isFalseAlarm = false,
-//            notifiedTo = "보호자",
-//            responseReceived = false,
-//            timestamp = Timestamp.now()
-//        )
-//
-//        repository.saveAlert(
-//            contexet = context,
-//            userId = userId,
-//            alert = alert,
-//            onSuccess = {
-//                Log.d("AlertViewModel", "낙상 알림 저장 성공")
-//            },
-//            onFailure = { error ->
-//                Log.e("AlertViewModel", "낙상 알림 저장 실패: $error")
-//            }
-//        )
-//    }
-
     fun submitAlert(context: Context, type: String) {
         val alert = Alert(
             alertId = UUID.randomUUID().toString(),
