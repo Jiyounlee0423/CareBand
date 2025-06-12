@@ -41,6 +41,7 @@ com.example.careband/
 │   │   ├── HealthRecordScreen.kt : 건강 기록 창 
 │   │   ├── HomeScreen.kt : 홈 화면 창
 │   │   ├── LoginScreen.kt : 로그인 창
+│   │   ├── ManagedUserSelectionScreen.kt : 사용자 관리(보호자 계정)
 │   │   ├── MedicalHistoryScreen.kt : 의료 이력 창(복약, 접종, 질병 이력 분기)
 │   │   ├── MedicationRecordScreen.kt : 복약 이력 창
 │   │   ├── MedicalReportScreen.kt : 의료 리포트 창
