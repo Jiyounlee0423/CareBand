@@ -1,5 +1,6 @@
 package com.example.careband.viewmodel
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -61,11 +62,35 @@ class AlertViewModel(
     /**
      * 낙상 알림 전송
      */
-    fun submitFallAlert() {
+//    fun submitFallAlert() {
+//        val alert = Alert(
+//            alertId = UUID.randomUUID().toString(),
+//            userId = userId,
+//            alertType = "fall",
+//            isFalseAlarm = false,
+//            notifiedTo = "보호자",
+//            responseReceived = false,
+//            timestamp = Timestamp.now()
+//        )
+//
+//        repository.saveAlert(
+//            contexet = context,
+//            userId = userId,
+//            alert = alert,
+//            onSuccess = {
+//                Log.d("AlertViewModel", "낙상 알림 저장 성공")
+//            },
+//            onFailure = { error ->
+//                Log.e("AlertViewModel", "낙상 알림 저장 실패: $error")
+//            }
+//        )
+//    }
+
+    fun submitAlert(context: Context, type: String) {
         val alert = Alert(
             alertId = UUID.randomUUID().toString(),
             userId = userId,
-            alertType = "fall",
+            alertType = type,
             isFalseAlarm = false,
             notifiedTo = "보호자",
             responseReceived = false,
@@ -73,16 +98,18 @@ class AlertViewModel(
         )
 
         repository.saveAlert(
+            context = context,
             userId = userId,
             alert = alert,
             onSuccess = {
-                Log.d("AlertViewModel", "낙상 알림 저장 성공")
+                Log.d("AlertViewModel", "[$type] 알림 저장 성공")
             },
             onFailure = { error ->
-                Log.e("AlertViewModel", "낙상 알림 저장 실패: $error")
+                Log.e("AlertViewModel", "[$type] 알림 저장 실패: $error")
             }
         )
     }
+
 
     /**
      * 응답 여부 처리

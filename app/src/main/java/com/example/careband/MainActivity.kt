@@ -2,6 +2,9 @@ package com.example.careband
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -32,10 +35,34 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Notification 클릭 → 전달된 딥링크 처리
+        val navigateToAlert = intent.getBooleanExtra("navigateToAlertScreen", false)
+        val alertIdFromNotification = intent.getStringExtra("alertId")
+
+
+        // ✅ [1] Notification 채널 생성은 Android 8.0 이상에서 한 번만 실행
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "careband_channel",              // 채널 ID
+                "CareBand 알림",                  // 채널 이름 (설정창에 표시됨)
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "이상 징후 감지 시 알림"
+            }
+
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+
         setContent {
             CareBandTheme {
                 val context = LocalContext.current
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
+
+                // ✅ 알림에서 넘어온 값 remember로 wrapping
+                val alertIdFromNotificationRemembered = remember { alertIdFromNotification }
+                val navigateToAlertRemembered = remember { navigateToAlert }
 
                 val vitalViewModel: VitalSignsViewModel = viewModel(factory = VitalSignsViewModelFactory(userId))
                 val sensorDataViewModel: SensorDataViewModel = viewModel(factory = SensorDataViewModelFactory(userId))
@@ -51,7 +78,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                // 권한 요청
+                // ✅ [2] 블루투스 권한 요청은 Android 12 이상
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val permissions = arrayOf(
                         Manifest.permission.BLUETOOTH_SCAN,
@@ -74,8 +101,17 @@ class MainActivity : ComponentActivity() {
                 var startDestination by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(isLoggedIn) {
-                    startDestination = if (isLoggedIn) Route.HOME else Route.LOGIN
-                    if (isLoggedIn) navController.popBackStack(Route.LOGIN, inclusive = true)
+//                    startDestination = if (isLoggedIn) Route.HOME else Route.LOGIN
+//                    if (isLoggedIn) navController.popBackStack(Route.LOGIN, inclusive = true)
+                    startDestination = if (isLoggedIn) {
+                        if (navigateToAlertRemembered) Route.ALERT_LOG else Route.HOME
+                    } else {
+                        Route.LOGIN
+                    }
+
+                    if (isLoggedIn) {
+                        navController.popBackStack(Route.LOGIN, inclusive = true)
+                    }
                 }
 
                 BackHandler(enabled = isLoggedIn && currentRoute == Route.LOGIN) {}
@@ -176,8 +212,15 @@ class MainActivity : ComponentActivity() {
                                 VitalSignsChartScreen(userId = userId)
                             }
                             composable(Route.ALERT_LOG) {
+//                                val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
+//                                AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
                                 val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
-                                AlertScreen(navController = navController, userId = userId, viewModel = alertViewModel)
+                                AlertScreen(
+                                    navController = navController,
+                                    userId = userId,
+                                    viewModel = alertViewModel,
+                                    focusedAlertId = alertIdFromNotificationRemembered // ✅ 알림 클릭 시 이동한 alertId 전달
+                                )
                             }
                             composable(Route.USER_MANAGEMENT) {
                                 Text("사용자 관리 화면")

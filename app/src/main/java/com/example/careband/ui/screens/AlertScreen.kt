@@ -3,6 +3,7 @@ package com.example.careband.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,11 +22,13 @@ import java.util.Locale
 fun AlertScreen(
     navController: NavController,
     userId: String,
-    viewModel: AlertViewModel
+    viewModel: AlertViewModel,
+    focusedAlertId: String? = null
 ) {
     //val viewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
 
     val alertList by viewModel.alertList.collectAsState()
+    val listState = rememberLazyListState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -34,6 +37,16 @@ fun AlertScreen(
         viewModel.startAlertListener()
         //viewModel.loadUserAlerts(userId)
     }
+
+    LaunchedEffect(alertList) {
+        if (!focusedAlertId.isNullOrEmpty()) {
+            val index = alertList.indexOfFirst { it.alertId == focusedAlertId }
+            if (index >= 0) {
+                listState.scrollToItem(index)
+            }
+        }
+    }
+
 
     Scaffold(
         topBar = {
@@ -69,7 +82,7 @@ fun AlertScreen(
                 }
 
                 else -> {
-                    LazyColumn {
+                    LazyColumn(state = listState) {
                         items(alertList) { alert ->
                             AlertItem(
                                 alert = alert,

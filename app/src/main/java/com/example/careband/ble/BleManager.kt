@@ -180,39 +180,90 @@ class BleManager(
             writeNextDescriptor()
         }
 
-        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-            val value = characteristic.value?.toString(Charsets.UTF_8) ?: return
+        // 지속 시간 추적 변수
+        private var spo2AlertStart: Long? = null
+        private var bpmAlertStart: Long? = null
+        private var tempAlertStart: Long? = null
+        private var fallAlertLastSent: Long? = null
+
+        // 기준값
+        private val spo2Threshold = 90.0f
+        private val bpmLow = 50.0f
+        private val bpmHigh = 120.0f
+        private val tempHigh = 37.5f
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
+            val value = characteristic?.getStringValue(0) ?: return
             val now = System.currentTimeMillis()
-            Log.d("BLE", "📥 수신된 데이터: $value")
 
             when {
-                value == "FALL" -> {
-                    sensorDataViewModel.updateFallStatus(value)
-                    saveToVitalSignsMap("fall_detected", true)
-                    saveToAlerts("fall")
-                }
-                value.startsWith("TEMP:") -> {
-                    val temp = value.substringAfter(":").toFloatOrNull() ?: return
-                    vitalViewModel.updateLiveVitalSign("TEMP", temp)
-                    if (shouldSave("temperature", now)) {
-                        saveToVitalSignsMap("temperature", temp)
-                        saveToAlerts("TEMP")
-                    }
-                }
                 value.startsWith("BPM:") -> {
                     val bpm = value.substringAfter(":").toFloatOrNull() ?: return
                     vitalViewModel.updateLiveVitalSign("BPM", bpm)
-                    if (shouldSave("heart_rate", now)) {
-                        saveToVitalSignsMap("heart_rate", bpm)
-                        saveToAlerts("hr")
+
+                    if (bpm in 30.0..180.0) {
+                        if (bpm < 50.0 || bpm > 120.0) {
+                            if (bpmAlertStart == null) bpmAlertStart = now
+                            else if (now - bpmAlertStart!! >= 5000) {
+                                saveToAlerts("hr")
+                                bpmAlertStart = null
+                            }
+                        } else {
+                            bpmAlertStart = null
+                        }
+                    } else {
+                        Log.w("BLE", "🚫 유효하지 않은 BPM 값: $bpm")
+                        bpmAlertStart = null
                     }
                 }
+
+                value.startsWith("TEMP:") -> {
+                    val temp = value.substringAfter(":").toFloatOrNull() ?: return
+                    vitalViewModel.updateLiveVitalSign("TEMP", temp)
+
+                    if (temp in 30.0..45.0) {
+                        if (temp > 37.5) {
+                            if (tempAlertStart == null) tempAlertStart = now
+                            else if (now - tempAlertStart!! >= 5000) {
+                                saveToAlerts("TEMP")
+                                tempAlertStart = null
+                            }
+                        } else {
+                            tempAlertStart = null
+                        }
+                    } else {
+                        Log.w("BLE", "🚫 유효하지 않은 체온 값: $temp")
+                        tempAlertStart = null
+                    }
+                }
+
                 value.startsWith("SpO2:") -> {
                     val spo2 = value.substringAfter(":").toFloatOrNull() ?: return
                     vitalViewModel.updateLiveVitalSign("SpO2", spo2)
-                    if (shouldSave("spo2", now)) {
-                        saveToVitalSignsMap("spo2", spo2)
-                        saveToAlerts("spo2")
+
+                    // ✅ 센서 정상 감지 범위: 80~100%
+                    if (spo2 in 80.0..100.0) {
+                        if (spo2 < 90.0) {
+                            if (spo2AlertStart == null) spo2AlertStart = now
+                            else if (now - spo2AlertStart!! >= 10000) {
+                                saveToAlerts("spo2")
+                                spo2AlertStart = null
+                            }
+                        } else {
+                            spo2AlertStart = null
+                        }
+                    } else {
+                        // ⚠️ 유효하지 않은 측정값 → 경고만 띄우고 알림 X
+                        Log.w("BLE", "🚫 유효하지 않은 SpO2 값: $spo2")
+                        spo2AlertStart = null
+                    }
+                }
+
+                value == "FALL" -> {
+                    val last = fallAlertLastSent ?: 0L
+                    if (now - last >= 5000) {
+                        saveToAlerts("fall")
+                        fallAlertLastSent = now
                     }
                 }
             }
@@ -247,13 +298,33 @@ class BleManager(
             .addOnFailureListener { e -> Log.e("BLE", "❌ $type 저장 실패", e) }
     }
 
+//    private fun saveToAlerts(type: String) {
+//        val alert = Alert(alertId = UUID.randomUUID().toString(), alertType = type)
+//        AlertRepository().saveAlert(userId, alert,
+//            onSuccess = { Log.d("BLE", "✅ alerts 저장 성공") },
+//            onFailure = { e -> Log.e("BLE", "❌ alerts 저장 실패: $e") }
+//        )
+//    }
+
     private fun saveToAlerts(type: String) {
-        val alert = Alert(alertId = UUID.randomUUID().toString(), alertType = type)
-        AlertRepository().saveAlert(userId, alert,
-            onSuccess = { Log.d("BLE", "✅ alerts 저장 성공") },
-            onFailure = { e -> Log.e("BLE", "❌ alerts 저장 실패: $e") }
+        val alert = Alert(
+            alertId = UUID.randomUUID().toString(),
+            alertType = type
+        )
+
+        AlertRepository().saveAlert(
+            context = context,       // ✅ context 먼저
+            userId = userId,         // ✅ 그 다음 userId
+            alert = alert,           // ✅ alert 객체 전달
+            onSuccess = {
+                Log.d("BLE", "✅ alerts 저장 성공")
+            },
+            onFailure = { e ->
+                Log.e("BLE", "❌ alerts 저장 실패: $e")
+            }
         )
     }
+
 
     fun getConnectedDevice(): BluetoothDevice? {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

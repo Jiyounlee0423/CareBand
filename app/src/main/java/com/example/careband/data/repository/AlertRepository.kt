@@ -4,6 +4,13 @@ import android.util.Log
 import com.example.careband.data.model.Alert
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import com.example.careband.MainActivity
+import com.example.careband.R
 
 class AlertRepository {
 
@@ -13,6 +20,7 @@ class AlertRepository {
      * 알림 저장 (하위 컬렉션 → 단일 컬렉션 방식)
      */
     fun saveAlert(
+        context: Context,
         userId: String,
         alert: Alert,
         onSuccess: () -> Unit,
@@ -34,7 +42,9 @@ class AlertRepository {
 
         FirebaseFirestore.getInstance().collection("alerts")
             .add(finalAlert)                // ✅ 직접 Alert 객체로 저장 (Map 아님)
-            .addOnSuccessListener { onSuccess() }
+            .addOnSuccessListener {
+                showAlertNotification(context, alert.alertId) // ✅ 알림 띄우기
+                onSuccess() }
             .addOnFailureListener { e ->
                 Log.e("Firestore", "알림 저장 실패: ${e.message}")
                 onFailure(e)
@@ -106,5 +116,33 @@ class AlertRepository {
                     onUpdate(alerts)
                 }
             }
+    }
+
+    private fun showAlertNotification(context: Context, alertId: String) {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            putExtra("navigateToAlertScreen", true)
+            putExtra("alertId", alertId)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, "careband_channel")
+            .setSmallIcon(android.R.drawable.ic_dialog_email) // 종 모양 기본 내장 아이콘
+            .setContentTitle("⚠️ 이상 상태 감지")
+            .setContentText("새로운 이상 징후가 감지되었습니다.")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setColor(android.graphics.Color.RED) // 강조색 빨강 (상단바 강조용)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(1001, notification)
     }
 }
