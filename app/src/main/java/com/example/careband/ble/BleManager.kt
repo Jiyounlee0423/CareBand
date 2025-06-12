@@ -46,9 +46,9 @@ class BleManager(
     private val lastSavedTimestamps = mutableMapOf<String, Long>()
     private val saveIntervalMillis = 60_000L
 
-    private var latestBPM: Float? = null
-    private var latestSpO2: Float? = null
-    private var latestTemp: Float? = null
+    val latestBPM = MutableStateFlow<Float?>(null)
+    val latestSpO2 = MutableStateFlow<Float?>(null)
+    val latestTemp = MutableStateFlow<Float?>(null)
 
 //    private fun handleBLEData(type: String, value: Float) {
 //        val now = System.currentTimeMillis()
@@ -200,6 +200,7 @@ class BleManager(
                 value.startsWith("BPM:") -> {
                     val bpm = value.substringAfter(":").toFloatOrNull() ?: return
                     vitalViewModel.updateLiveVitalSign("BPM", bpm)
+                    latestBPM.value = bpm
 
                     if (bpm in 30.0..180.0) {
                         if (bpm < 50.0 || bpm > 120.0) {
@@ -220,6 +221,7 @@ class BleManager(
                 value.startsWith("TEMP:") -> {
                     val temp = value.substringAfter(":").toFloatOrNull() ?: return
                     vitalViewModel.updateLiveVitalSign("TEMP", temp)
+                    latestTemp.value = temp
 
                     if (temp in 30.0..45.0) {
                         if (temp > 37.5) {
@@ -240,6 +242,7 @@ class BleManager(
                 value.startsWith("SpO2:") -> {
                     val spo2 = value.substringAfter(":").toFloatOrNull() ?: return
                     vitalViewModel.updateLiveVitalSign("SpO2", spo2)
+                    latestSpO2.value = spo2
 
                     // ✅ 센서 정상 감지 범위: 80~100%
                     if (spo2 in 80.0..100.0) {
@@ -297,14 +300,6 @@ class BleManager(
             .addOnSuccessListener { Log.d("BLE", "✅ $type 저장 성공") }
             .addOnFailureListener { e -> Log.e("BLE", "❌ $type 저장 실패", e) }
     }
-
-//    private fun saveToAlerts(type: String) {
-//        val alert = Alert(alertId = UUID.randomUUID().toString(), alertType = type)
-//        AlertRepository().saveAlert(userId, alert,
-//            onSuccess = { Log.d("BLE", "✅ alerts 저장 성공") },
-//            onFailure = { e -> Log.e("BLE", "❌ alerts 저장 실패: $e") }
-//        )
-//    }
 
     private fun saveToAlerts(type: String) {
         val alert = Alert(

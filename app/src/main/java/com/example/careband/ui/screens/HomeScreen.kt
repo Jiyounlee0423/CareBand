@@ -112,6 +112,18 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
 //        }
 //    }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            val bpm = bleManager.latestBPM.value
+            val spo2 = bleManager.latestSpO2.value
+            val temp = bleManager.latestTemp.value
+
+            vitalViewModel.updateLatestVitalSigns(bpm, spo2, temp)
+
+            delay(10_000)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
