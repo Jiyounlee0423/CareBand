@@ -49,7 +49,7 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
     val records by vitalViewModel.records.collectAsStateWithLifecycle()
 
     val latestRecordState = vitalViewModel.latestRecord.collectAsState()
-    //val latestRecord by vitalViewModel.latestRecord.collectAsStateWithLifecycle()
+    //val latestRecordState by vitalViewModel.latestRecord.collectAsStateWithLifecycle()
     val latestRecord by vitalViewModel.latestRecord.collectAsState()
 
 
@@ -135,20 +135,22 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
                 Text("기기 연결이 필요합니다.", color = Color.Red)
             }
             latestRecord == null -> {
-                Text("등록된 생체 정보가 없습니다 (latestRecord == null).", color = Color.Gray)
-            }
-            latestRecord!!.heartRate == 0 && latestRecord!!.spo2 == 0 && latestRecord!!.bodyTemp == 0f -> {
-                Text("등록된 생체 정보가 없습니다 (값이 모두 0).", color = Color.Gray)
+                Text("등록된 생체 정보가 없습니다.", color = Color.Gray)
             }
             else -> {
                 val record = latestRecord!!
-                val items = listOf(
-                    Triple("심박수", "${record.heartRate} BPM", R.drawable.heart_icon),
-                    Triple("산소포화도", "${record.spo2} %", R.drawable.spo2_icon),
-                    Triple("체온", "${record.bodyTemp} °C", R.drawable.thermometer)
-                )
-                items.forEach { (label, value, iconRes) ->
-                    VitalRow(label, value, painterResource(id = iconRes))
+                val items = mutableListOf<Triple<String, String, Int>>()
+
+                if (record.heartRate > 0) items.add(Triple("심박수", "${record.heartRate} BPM", R.drawable.heart_icon))
+                if (record.spo2 > 0) items.add(Triple("산소포화도", "${record.spo2} %", R.drawable.spo2_icon))
+                if (record.bodyTemp > 0f) items.add(Triple("체온", "${record.bodyTemp} °C", R.drawable.thermometer))
+
+                if (items.isEmpty()) {
+                    Text("등록된 생체 정보가 없습니다.", color = Color.Gray)
+                } else {
+                    items.forEach { (label, value, iconRes) ->
+                        VitalRow(label = label, value = value, icon = painterResource(id = iconRes))
+                    }
                 }
             }
         }

@@ -84,4 +84,7 @@ dependencies {
 
     implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
 
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.1") // 버전은 Compose에 맞춰
+
+
 }
