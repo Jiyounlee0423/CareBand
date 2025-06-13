@@ -12,9 +12,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
@@ -214,20 +217,40 @@ class MainActivity : ComponentActivity() {
                                 VitalSignsChartScreen(userId = userId)
                             }
                             composable(Route.ALERT_LOG) {
-                                val alertViewModel: AlertViewModel = viewModel(factory = AlertViewModelFactory(userId))
+                                val alertViewModelFactory = remember { AlertViewModelFactory(userId) }
+                                val alertViewModel: AlertViewModel = viewModel(factory = alertViewModelFactory)
+
                                 AlertScreen(
                                     navController = navController,
                                     userId = userId,
                                     viewModel = alertViewModel,
-                                    focusedAlertId = alertIdFromNotificationRemembered // ✅ 알림 클릭 시 이동한 alertId 전달
+                                    focusedAlertId = alertIdFromNotificationRemembered
                                 )
                             }
+
                             composable(Route.USER_MANAGEMENT) {
-                                ManagedUserSelectionScreen(
-                                    navController = navController,
-                                    caregiverId = caregiverId ?: ""
-                                )
+                                val caregiverIdNullable by authViewModel.userId.collectAsState(initial = null)
+
+                                // 여기부터는 Composable context 안이기 때문에 사용 가능!
+                                if (!caregiverIdNullable.isNullOrBlank()) {
+                                    val caregiverId = caregiverIdNullable!!
+
+                                    CaregiverManagedUserScreen(
+                                        caregiverId = caregiverId,
+                                        navController = navController
+                                    )
+                                } else {
+                                    // ✅ Composable 안이기 때문에 CircularProgressIndicator 사용 가능
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
+                                    }
+                                }
                             }
+
                             composable(Route.DEVICE_CONNECTION) {
                                 BleManagerScreen(
                                     bleViewModel = bleViewModel,

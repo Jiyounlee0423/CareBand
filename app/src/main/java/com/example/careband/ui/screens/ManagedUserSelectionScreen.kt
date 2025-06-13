@@ -1,6 +1,7 @@
 package com.example.careband.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,103 +16,60 @@ import com.example.careband.viewmodel.CaregiverViewModelFactory
 
 @Composable
 fun ManagedUserSelectionScreen(
-    navController: NavController,
-    caregiverId: String
+    connectedUsers: List<String>, // ex) ["1111", "3333", "5555"]
+    selectedUserId: String?,
+    onSelectUser: (String) -> Unit,
+    onBindSelectedUser: () -> Unit,
+    onSearchUser: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val caregiverViewModel: CaregiverViewModel = viewModel(factory = CaregiverViewModelFactory(caregiverId))
-    val managedUserIds by caregiverViewModel.managedUserIds.collectAsState()
+    var searchQuery by remember { mutableStateOf("") }
 
-    var searchInput by remember { mutableStateOf("") }
-    var searchResultUserId by remember { mutableStateOf<String?>(null) }
-    var selectedUserId by remember { mutableStateOf<String?>(null) }
-
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
-
+    Column(modifier = Modifier.padding(16.dp)) {
         Text("현재 연결된 사용자 목록", style = MaterialTheme.typography.titleMedium)
+
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (managedUserIds.isEmpty()) {
-            Text("연결된 사용자가 없습니다.")
-        } else {
-            managedUserIds.forEach {
-                Text("• 사용자 ID: $it")
+        connectedUsers.forEach { userId ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectUser(userId) }
+                    .padding(vertical = 4.dp)
+            ) {
+                Checkbox(
+                    checked = (userId == selectedUserId),
+                    onCheckedChange = { onSelectUser(userId) }
+                )
+                Text("사용자 ID: $userId")
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = onBindSelectedUser,
+            enabled = selectedUserId != null
+        ) {
+            Text("연동하기")
         }
 
         Spacer(modifier = Modifier.height(24.dp))
         Divider()
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text("새 사용자 검색", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-
         OutlinedTextField(
-            value = searchInput,
-            onValueChange = { searchInput = it },
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
             label = { Text("사용자 ID 입력") },
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = {
-            caregiverViewModel.checkUserExists(searchInput) { exists ->
-                if (exists) {
-                    searchResultUserId = searchInput
-                    selectedUserId = searchInput
-                    Toast.makeText(context, "사용자 검색 성공", Toast.LENGTH_SHORT).show()
-                } else {
-                    searchResultUserId = null
-                    Toast.makeText(context, "존재하지 않는 사용자입니다.", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }) {
-            Text("사용자 검색")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        if (searchResultUserId != null) {
-            Text("🔍 검색된 사용자 목록", style = MaterialTheme.typography.titleMedium)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                RadioButton(
-                    selected = selectedUserId == searchResultUserId,
-                    onClick = { selectedUserId = searchResultUserId }
-                )
-                Text("사용자 ID: $searchResultUserId")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    selectedUserId?.let { uid ->
-                        caregiverViewModel.addManagedUser(uid) { success ->
-                            if (success) {
-                                Toast.makeText(context, "✅ 사용자 연결 완료", Toast.LENGTH_SHORT).show()
-                                searchResultUserId = null
-                                selectedUserId = null
-                                searchInput = ""
-                            } else {
-                                Toast.makeText(context, "❌ 사용자 연결 실패", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                },
-                enabled = selectedUserId != null,
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("사용자 연결")
-            }
+        Button(onClick = { onSearchUser(searchQuery) }) {
+            Text("사용자 목록에 추가")
         }
     }
 }
-

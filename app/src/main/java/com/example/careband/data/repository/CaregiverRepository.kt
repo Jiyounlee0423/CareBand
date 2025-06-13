@@ -39,6 +39,14 @@ class CaregiverRepository {
         return snapshot.get("managedUserIds") as? List<String> ?: emptyList()
     }
 
+    suspend fun getActiveUserId(caregiverId: String): String? {
+        val snapshot = Firebase.firestore.collection("users")
+            .document(caregiverId)
+            .get()
+            .await()
+
+        return snapshot.getString("activeUserId")
+    }
 
     /** 보호자 전체 정보 가져오기 (필요 시) **/
     suspend fun getCaregiver(caregiverId: String): Caregiver? {
@@ -61,6 +69,20 @@ class CaregiverRepository {
             }
             .addOnFailureListener { e ->
                 Log.e("Firestore", "❌ 사용자 ID 추가 실패: ${e.message}")
+                onComplete(false)
+            }
+    }
+
+    fun setActiveUserId(caregiverId: String, userId: String, onComplete: (Boolean) -> Unit) {
+        val docRef = Firebase.firestore.collection("users").document(caregiverId)
+
+        docRef.update("activeUserId", userId)
+            .addOnSuccessListener {
+                Log.d("Firestore", "✅ 연동된 사용자 ID 저장 성공: $userId")
+                onComplete(true)
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firestore", "❌ 연동된 사용자 ID 저장 실패: ${e.message}")
                 onComplete(false)
             }
     }

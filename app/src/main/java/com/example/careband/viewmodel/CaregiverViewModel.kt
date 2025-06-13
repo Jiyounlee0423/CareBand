@@ -24,12 +24,13 @@ class CaregiverViewModel(private val caregiverId: String) : ViewModel() {
     init {
         viewModelScope.launch {
             val ids = repository.getManagedUserIds(caregiverId)
+            val activeId = repository.getActiveUserId(caregiverId)
+
             _managedUserIds.value = ids
-            if (ids.isNotEmpty()) {
-                _selectedUserId.value = ids.first()
-            }
+            _selectedUserId.value = if (activeId != null && activeId in ids) activeId else ids.firstOrNull()
         }
     }
+
 
     // 선택한 사용자 ID 업데이트 (ex. 라디오버튼으로 선택했을 때)
     fun selectUser(userId: String) {
@@ -57,6 +58,16 @@ class CaregiverViewModel(private val caregiverId: String) : ViewModel() {
         viewModelScope.launch {
             val exists = repository.doesUserExist(userId)
             callback(exists)
+        }
+    }
+
+    fun bindSelectedUser(onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            selectedUserId.value?.let { selectedId ->
+                repository.setActiveUserId(caregiverId, selectedId) { success ->
+                    onComplete(success)
+                }
+            }
         }
     }
 
