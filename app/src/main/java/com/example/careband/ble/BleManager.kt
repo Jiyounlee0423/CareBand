@@ -50,27 +50,6 @@ class BleManager(
     val latestSpO2 = MutableStateFlow<Float?>(null)
     val latestTemp = MutableStateFlow<Float?>(null)
 
-//    private fun handleBLEData(type: String, value: Float) {
-//        val now = System.currentTimeMillis()
-//        val timeStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(Date(now))
-//        val todayStr = timeStr.substring(0, 10)
-//
-//        val current = _records.value.lastOrNull() ?: VitalSignsRecord(
-//            timestamp = timeStr,
-//            userId = userId,
-//            date = todayStr
-//        )
-//
-//        val updated = when (type) {
-//            "BPM" -> current.copy(heartRate = value.toInt())
-//            "SpO2" -> current.copy(spo2 = value.toInt())
-//            "TEMP" -> current.copy(bodyTemp = value)
-//            else -> current
-//        }
-//
-//        _records.value = listOf(updated)
-//    }
-
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             val hasPermission = ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED

@@ -32,12 +32,6 @@ fun AlertScreen(
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // 처음 진입 시 알림 불러오기
-    LaunchedEffect(userId) {
-        viewModel.startAlertListener()
-        //viewModel.loadUserAlerts(userId)
-    }
-
     LaunchedEffect(alertList) {
         if (!focusedAlertId.isNullOrEmpty()) {
             val index = alertList.indexOfFirst { it.alertId == focusedAlertId }

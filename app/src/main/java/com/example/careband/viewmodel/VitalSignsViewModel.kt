@@ -71,16 +71,6 @@ class VitalSignsViewModel(private val userId: String) : ViewModel() {
         }
 
     }
-//    fun loadVitalRecords(fromDate: LocalDate = LocalDate.of(2025, 6, 9)) {
-//        val startDate = fromDate.toString()
-//        val endDate = fromDate.toString() // 하루만 조회
-//        viewModelScope.launch {
-//            println("📅 강제 요청: $startDate ~ $endDate")
-//            val data = repository.getVitalSignsInRange(userId, startDate, endDate)
-//            println("✅ 수신된 레코드 수: ${data.size}")
-//            _records.value = data
-//        }
-//    }
 
     fun loadHealthRecords(fromDate: LocalDate) {
         val startDate = fromDate.toString()

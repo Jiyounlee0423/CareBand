@@ -104,8 +104,6 @@ class MainActivity : ComponentActivity() {
                 var startDestination by remember { mutableStateOf<String?>(null) }
 
                 LaunchedEffect(isLoggedIn) {
-//                    startDestination = if (isLoggedIn) Route.HOME else Route.LOGIN
-//                    if (isLoggedIn) navController.popBackStack(Route.LOGIN, inclusive = true)
                     startDestination = if (isLoggedIn) {
                         if (navigateToAlertRemembered) Route.ALERT_LOG else Route.HOME
                     } else {

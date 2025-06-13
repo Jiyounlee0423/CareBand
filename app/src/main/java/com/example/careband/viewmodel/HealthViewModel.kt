@@ -36,16 +36,6 @@ class HealthViewModel : ViewModel() {
     private var currentUserId: String = ""
     private var currentDate: String = ""
 
-//    fun loadHealthRecord(userId: String, date: String) {
-//        currentUserId = userId
-//        currentDate = date
-//        viewModelScope.launch {
-//            repository.getHealthRecord(userId, date) { record ->
-//                _healthRecord.value = record ?: HealthRecord(date = date)
-//            }
-//        }
-//    }
-
     fun updateWeight(value: Int) {
         _healthRecord.value = _healthRecord.value.copy(weight = value)
     }

@@ -49,14 +49,7 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
     val records by vitalViewModel.records.collectAsStateWithLifecycle()
 
     val latestRecordState = vitalViewModel.latestRecord.collectAsState()
-    //val latestRecordState by vitalViewModel.latestRecord.collectAsStateWithLifecycle()
     val latestRecord by vitalViewModel.latestRecord.collectAsState()
-
-
-
-
-
-
 
     val latest = records.lastOrNull()
 
@@ -105,12 +98,6 @@ fun HomeScreen(navController: NavController, bleManager: BleManager) {
             medicationCheckViewModel.loadTodayMedications(userId)
         }
     }
-
-//    LaunchedEffect(Unit) {
-//        if (userId.isNotBlank()) {
-//            vitalViewModel.updateLatestVitalSigns(null, null, null) // 초기화용
-//        }
-//    }
 
     LaunchedEffect(Unit) {
         while (true) {
